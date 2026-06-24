@@ -19,6 +19,7 @@ class StartRequest(BaseModel):
     max_ticks: int = Field(default=80, ge=1, le=500)
     speed: float = Field(default=1.0, ge=0.1, le=10.0)
     agent_count: int = Field(default=48, ge=6, le=512)
+    prompt: str = Field(default="", max_length=4000)
 
 
 class SeasonForceRequest(BaseModel):
@@ -102,13 +103,17 @@ async def stream_events() -> EventSourceResponse:
 
 @router.post("/sim/society")
 async def run_society(req: StartRequest) -> dict[str, Any]:
-    state = await runner.start(req.max_ticks, req.speed, mode="society", agent_count=req.agent_count)
+    prompt = req.prompt.strip() or None
+    state = await runner.start(
+        req.max_ticks, req.speed, mode="society", agent_count=req.agent_count, user_prompt=prompt
+    )
     return {
         "status": "society_started",
         "tick": state["tick"],
         "agents": len(state["agents"]),
         "subtasks": len(state["canvas"].subtasks),
         "agent_count": req.agent_count,
+        "goal": state["canvas"].goal,
     }
 
 

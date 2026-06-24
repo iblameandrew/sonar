@@ -14,7 +14,7 @@ from app.models.events import SimEvent
 from app.models.metrics import ComparisonMetrics, RunMetrics
 from app.models.state import SimulationState
 from app.grid import WORLD_SIZE, sector_id, total_walkable_cells
-from app.seed import DEFAULT_OUGHT, create_colony_agents, create_project_canvas
+from app.seed import create_colony_agents, create_project_canvas, ought_for_prompt
 
 
 class SimulationRunner:
@@ -35,6 +35,7 @@ class SimulationRunner:
         speed: float = 1.0,
         mode: str = "society",
         agent_count: int = 48,
+        user_prompt: str | None = None,
     ) -> SimulationState:
         return SimulationState(
             tick=0,
@@ -45,11 +46,11 @@ class SimulationRunner:
             execution_mode=mode,
             agents=create_colony_agents(agent_count),
             playbook=SocialPlaybook(),
-            canvas=create_project_canvas(),
+            canvas=create_project_canvas(user_prompt),
             regret=0.0,
             regret_narrative="",
             conflict_active=False,
-            ought_snapshot=DEFAULT_OUGHT,
+            ought_snapshot=ought_for_prompt(user_prompt),
             events=[],
             institutions=[],
             raptor_nodes=[],
@@ -68,6 +69,7 @@ class SimulationRunner:
         speed: float = 1.0,
         mode: str = "society",
         agent_count: int = 48,
+        user_prompt: str | None = None,
     ) -> SimulationState:
         async with self._lock:
             if self._task and not self._task.done():
@@ -81,7 +83,7 @@ class SimulationRunner:
             engine.custodian.weights = {}
             self.execution_mode = mode
             self.thread_id = str(uuid.uuid4())
-            self.state = self._initial_state(max_ticks, speed, mode, agent_count)
+            self.state = self._initial_state(max_ticks, speed, mode, agent_count, user_prompt)
             self.state["running"] = True
             self.state["paused"] = False
             self._task = asyncio.create_task(self._run_loop())

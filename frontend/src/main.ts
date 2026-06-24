@@ -9,6 +9,8 @@ const phaseLabel = document.getElementById("phase-label")!;
 const regretLabel = document.getElementById("regret-label")!;
 const modeLabel = document.getElementById("mode-label")!;
 const inspectPanel = document.getElementById("inspect-panel")!;
+const promptInput = document.getElementById("colony-prompt") as HTMLTextAreaElement;
+const activeGoalEl = document.getElementById("active-goal")!;
 
 const scene = new ColonyScene(canvas);
 const sse = new SSEClient();
@@ -25,6 +27,41 @@ async function api(path: string, method = "GET", body?: unknown) {
   return res.json();
 }
 
+function getPrompt(): string {
+  return promptInput.value.trim();
+}
+
+function setActiveGoal(goal: string): void {
+  activeGoalEl.textContent = goal ? `Solving: ${goal}` : "";
+}
+
+async function deployColony() {
+  const prompt = getPrompt();
+  if (!prompt) {
+    promptInput.focus();
+    activeGoalEl.textContent = "Enter a problem for the colony to solve.";
+    return;
+  }
+
+  modeLabel.textContent = "Society";
+  const agentCount = dashboard.getAgentCount();
+  await api("/sim/society", "POST", {
+    max_ticks: 80,
+    speed: 1.5,
+    agent_count: agentCount,
+    prompt,
+  });
+
+  const s = await api("/state");
+  scene.loadAgents(s.agents);
+  dashboard.updateTasks(s.canvas);
+  dashboard.refreshColony(s.agents);
+  if (s.colony) dashboard.updateColonyFromServer(s.colony);
+  if (s.canvas?.goal) setActiveGoal(s.canvas.goal);
+  updateStatus(s);
+  dashboard.switchTab("colony");
+}
+
 async function init() {
   await dashboard.loadQwen();
   const state = await api("/state");
@@ -35,6 +72,10 @@ async function init() {
     dashboard.updateTasks(state.canvas as ProjectCanvas);
     dashboard.refreshColony(state.agents as Agent[]);
     if (state.colony) dashboard.updateColonyFromServer(state.colony as ColonyInfo);
+    if (state.canvas?.goal) {
+      setActiveGoal(state.canvas.goal);
+      if (!promptInput.value) promptInput.value = state.canvas.goal;
+    }
     updateStatus(state);
   }
 
@@ -44,7 +85,7 @@ async function init() {
     api(`/agents/${agent.id}`).then((deps) => {
       inspectPanel.innerHTML = `
         <strong>${agent.name}</strong> · ${agent.role}<br/>
-        Position (${agent.grid_x}, ${agent.grid_y})<br/>
+        Zone ${Math.floor(agent.grid_x / 12)}-${Math.floor(agent.grid_y / 12)}<br/>
         ${agent.verbs.join(" · ")}<br/>
         <em>${agent.adjectives.join(", ")}</em><br/>
         Deps: ${deps.incoming?.length ?? 0} in / ${deps.outgoing?.length ?? 0} out
@@ -78,21 +119,11 @@ async function init() {
     }
   });
 
-  document.getElementById("btn-society")!.onclick = async () => {
-    modeLabel.textContent = "Society";
-    const agentCount = dashboard.getAgentCount();
-    await api("/sim/society", "POST", { max_ticks: 80, speed: 1.5, agent_count: agentCount });
-    const s = await api("/state");
-    scene.loadAgents(s.agents);
-    dashboard.updateTasks(s.canvas);
-    dashboard.refreshColony(s.agents);
-    if (s.colony) dashboard.updateColonyFromServer(s.colony);
-    updateStatus(s);
-    dashboard.switchTab("colony");
-  };
+  document.getElementById("btn-solve")!.onclick = () => deployColony();
+  document.getElementById("btn-society")!.onclick = () => deployColony();
   document.getElementById("btn-baseline")!.onclick = async () => {
     modeLabel.textContent = "Baseline";
-    await api("/sim/baseline", "POST", { max_ticks: 40, speed: 1 });
+    await api("/sim/baseline", "POST", { max_ticks: 40, speed: 1, prompt: getPrompt() });
   };
   document.getElementById("btn-conflict")!.onclick = () => api("/sim/inject-conflict", "POST");
   document.getElementById("btn-step")!.onclick = () => api("/sim/step", "POST");

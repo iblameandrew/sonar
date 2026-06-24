@@ -8,26 +8,40 @@
   </head>
   <body>
     <div id="app">
-      <header class="header">
-        <div class="brand">
-          <span class="brand-icon">◆</span>
-          <div>
-            <h1>Sociomorphic Computing</h1>
-            <p class="tagline">Conway Colony · Agent Society</p>
-          </div>
-        </div>
-        <div class="header-stats">
-          <span id="tick-label">Tick 0</span>
-          <span id="phase-label">Concept</span>
-          <span id="regret-label">Regret —</span>
-          <span id="mode-label">Idle</span>
-        </div>
-        <span id="qwen-badge" class="badge badge-warn">Qwen offline</span>
-      </header>
-
-      <main class="main">
-        <section class="viewport">
+      <div class="workspace">
+        <section class="stage">
           <canvas id="canvas"></canvas>
+
+          <div class="stage-overlay">
+            <div class="stage-brand">
+              <span class="brand-icon">◆</span>
+              <span>Sociomorphic Computing</span>
+            </div>
+            <div class="stage-stats">
+              <span id="tick-label">Tick 0</span>
+              <span id="phase-label">Concept</span>
+              <span id="regret-label">Regret —</span>
+              <span id="mode-label">Idle</span>
+              <span id="qwen-badge" class="badge badge-warn">Qwen offline</span>
+            </div>
+          </div>
+
+          <div class="prompt-dock">
+            <div class="prompt-header">
+              <h2>Colony Problem</h2>
+              <p class="hint">Describe what the agent society should solve. Specialists decompose your prompt into tasks.</p>
+            </div>
+            <textarea
+              id="colony-prompt"
+              rows="5"
+              placeholder="e.g. Design a real-time dashboard that compares multi-agent collaboration against a single-agent baseline, with live SSE updates and conflict resolution…"
+            ></textarea>
+            <div class="prompt-actions">
+              <button id="btn-solve" class="btn btn-primary btn-large">▶ Deploy Colony</button>
+              <span id="active-goal" class="active-goal"></span>
+            </div>
+          </div>
+
           <div id="inspect-panel" class="inspect hidden"></div>
         </section>
 
@@ -47,10 +61,10 @@
                 <span>Colony size</span>
                 <input id="agent-count" type="number" min="6" max="512" value="48" />
               </label>
-              <p class="hint">96×96 patch · evenly spaced trees · pan with Shift+drag · scroll to zoom</p>
+              <p class="hint">Top-down zone map · gradient sectors · drag to pan · scroll to zoom</p>
               <div class="btn-grid">
-                <button id="btn-society" class="btn btn-primary">▶ Run Society</button>
-                <button id="btn-baseline" class="btn">Run Baseline</button>
+                <button id="btn-society" class="btn btn-primary">Run Society</button>
+                <button id="btn-baseline" class="btn">Baseline</button>
                 <button id="btn-pause" class="btn">Pause</button>
                 <button id="btn-step" class="btn">Step</button>
                 <button id="btn-phase" class="btn">Advance Phase</button>
@@ -61,11 +75,11 @@
             </section>
 
             <section class="tab-panel" id="tab-colony">
-              <h2>Colony Map</h2>
+              <h2>Zone Map</h2>
               <canvas id="colony-minimap" class="minimap" width="192" height="192"></canvas>
               <h2>Population</h2>
               <div id="colony-stats" class="metrics-grid"></div>
-              <h2>Sectors</h2>
+              <h2>Sectors &amp; Cliques</h2>
               <div id="sector-stats" class="scroll-box"></div>
               <h2>Agent Registry</h2>
               <div id="agent-registry" class="scroll-box tall"></div>
@@ -102,7 +116,7 @@
             </section>
           </div>
         </aside>
-      </main>
+      </div>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

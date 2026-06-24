@@ -34,7 +34,7 @@ DECOMPOSE_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "human",
-            "Phase: {phase}\nPending tasks: {tasks}\nSpecialists: {agents}\n"
+            "Goal: {goal}\nPhase: {phase}\nPending tasks: {tasks}\nSpecialists: {agents}\n"
             "Assign up to 2 pending tasks to best-matching specialists by verbs/nouns.",
         ),
     ]
@@ -60,6 +60,7 @@ class Decomposer:
             DecomposeResult,
             DECOMPOSE_PROMPT,
             {
+                "goal": canvas.goal,
                 "phase": phase,
                 "tasks": [{"id": t.id, "title": t.title, "desc": t.description} for t in pending],
                 "agents": [{"id": a.id, "name": a.name, "role": a.role, "verbs": a.verbs} for a in agents],

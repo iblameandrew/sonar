@@ -83,19 +83,55 @@ def create_specialist_agents() -> list[QualitativeAgent]:
     return create_colony_agents(6)
 
 
-def create_project_canvas() -> ProjectCanvas:
+def create_project_canvas(user_prompt: str | None = None) -> ProjectCanvas:
     from app.models.canvas import ProjectCanvas, Subtask
+
+    prompt = (user_prompt or "").strip()
+    goal = prompt or "Build Sociomorphic Computing — qualitative social physics as software"
+    subtasks = _subtasks_for_prompt(goal) if prompt else _default_subtasks()
+    return ProjectCanvas(goal=goal, requirements=SOCIETY_REQUIREMENTS, subtasks=subtasks)
+
+
+def _default_subtasks() -> list[Subtask]:
+    from app.models.canvas import Subtask
+
     subtasks: list[Subtask] = []
     id_map: dict[str, str] = {}
     for title, desc, parent_title in INITIAL_SUBTASKS:
         tid = f"task-{uuid.uuid4().hex[:6]}"
         id_map[title] = tid
-        subtasks.append(Subtask(id=tid, title=title, description=desc, parent_id=id_map.get(parent_title) if parent_title else None))
-    return ProjectCanvas(
-        goal="Build Sociomorphic Computing — qualitative social physics as software",
-        requirements=SOCIETY_REQUIREMENTS,
-        subtasks=subtasks,
-    )
+        subtasks.append(
+            Subtask(id=tid, title=title, description=desc, parent_id=id_map.get(parent_title) if parent_title else None)
+        )
+    return subtasks
+
+
+def _subtasks_for_prompt(goal: str) -> list[Subtask]:
+    from app.models.canvas import Subtask
+
+    phases = [
+        ("Frame the problem", f"Analyze scope, constraints, and success criteria for: {goal}"),
+        ("Decompose", f"Break {goal} into specialist-owned workstreams"),
+        ("Design solution", f"Propose architecture and approach for: {goal}"),
+        ("Implement core", f"Build the primary deliverable for: {goal}"),
+        ("Integrate & test", f"Wire components and validate against: {goal}"),
+        ("Evaluate outcome", f"Measure quality and report results for: {goal}"),
+    ]
+    subtasks: list[Subtask] = []
+    frame_id: str | None = None
+    decompose_id: str | None = None
+    for title, desc in phases:
+        tid = f"task-{uuid.uuid4().hex[:6]}"
+        if title == "Frame the problem":
+            parent = None
+            frame_id = tid
+        elif title == "Decompose":
+            parent = frame_id
+            decompose_id = tid
+        else:
+            parent = decompose_id
+        subtasks.append(Subtask(id=tid, title=title, description=desc, parent_id=parent))
+    return subtasks
 
 
 DEFAULT_OUGHT: dict = {
@@ -110,6 +146,18 @@ DEFAULT_OUGHT: dict = {
         "baseline_comparison",
     ],
 }
+
+def ought_for_prompt(user_prompt: str | None = None) -> dict:
+    prompt = (user_prompt or "").strip()
+    base = dict(DEFAULT_OUGHT)
+    if prompt:
+        base = {
+            **base,
+            "description": f"The colony must solve: {prompt}",
+            "desired_adjectives": ["collaborative", "transparent", "efficient", "goal-aligned"],
+        }
+    return base
+
 
 COLONY_VOXEL_BLUEPRINT = [
     {"x": 45, "y": 45, "z": 0, "color": "#4060a0", "label": "backend_tower"},
