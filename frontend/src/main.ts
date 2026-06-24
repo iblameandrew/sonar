@@ -24,7 +24,8 @@ let pollTimer: number | null = null;
 let pollSnapshot = { tick: -1, playbookLen: 0, running: false };
 let liveTick = 0;
 let liveMaxTicks = 80;
-let livePhase = "boot";
+/** Raw graph phase from API/SSE only — never a formatted display string. */
+let livePhaseRaw = "idle";
 let livePlaybookLen = 0;
 
 async function api<T = Record<string, unknown>>(path: string, method = "GET", body?: unknown): Promise<T> {
@@ -96,15 +97,11 @@ type LiveState = {
   live_attention?: { done?: number; total?: number; matched?: number };
 };
 
-function formatLivePhase(s: LiveState, playbookLen?: number): string {
-  const phase = s.live_phase ?? livePhase;
+function formatPhaseDetail(s: LiveState): string {
+  const phase = s.live_phase ?? livePhaseRaw;
   const att = s.live_attention;
   if (phase === "ATTEND" && att?.total) {
-    const edges = playbookLen !== undefined ? ` · ${playbookLen} edges` : "";
-    return `ATTEND ${att.done ?? 0}/${att.total}${edges}`;
-  }
-  if (playbookLen !== undefined && phase !== "idle" && phase !== "TICK_DONE") {
-    return `${phase} · ${playbookLen} edges`;
+    return `ATTEND ${att.done ?? 0}/${att.total}`;
   }
   return phase;
 }
@@ -117,10 +114,13 @@ function stopStatePolling(): void {
   pollSnapshot = { tick: -1, playbookLen: 0, running: false };
 }
 
-function syncLiveHud(playbookLen = livePlaybookLen, detail = livePhase): void {
+function syncLiveHud(playbookLen = livePlaybookLen, phaseDetail = livePhaseRaw): void {
   const tick = Math.max(liveTick, pollSnapshot.tick);
-  dashboard.updateRunProgress(tick, liveMaxTicks, playbookLen, detail, { force: true });
+  dashboard.updateRunProgress(tick, liveMaxTicks, playbookLen, phaseDetail, { force: true });
   tickLabel.textContent = `Tick ${tick}`;
+  if (phaseDetail && phaseDetail !== "idle") {
+    phaseLabel.textContent = phaseDetail;
+  }
 }
 
 async function applyStateSnapshot(s: LiveState, opts?: { finalize?: boolean }): Promise<void> {
@@ -148,11 +148,11 @@ async function applyStateSnapshot(s: LiveState, opts?: { finalize?: boolean }): 
     return;
   }
 
-  const phaseText = formatLivePhase(s, playbookLen);
-  livePhase = phaseText;
-  syncLiveHud(playbookLen, phaseText);
+  if (s.live_phase) livePhaseRaw = s.live_phase;
+  const phaseDetail = formatPhaseDetail(s);
+  syncLiveHud(playbookLen, phaseDetail);
   if (goal) {
-    activeGoalEl.textContent = `Tick ${liveTick}/${liveMaxTicks} · ${phaseText} · ${goal.slice(0, 56)}`;
+    activeGoalEl.textContent = `Tick ${liveTick}/${liveMaxTicks} · ${phaseDetail} · ${goal.slice(0, 56)}`;
   }
 }
 
@@ -209,7 +209,7 @@ function applyLiveEvent(event: SimEvent): void {
   }
   if (event.type === "simulation_started") {
     liveTick = 0;
-    livePhase = "starting";
+    livePhaseRaw = "STARTING";
     livePlaybookLen = 0;
     liveMaxTicks = Number(event.payload.max_ticks ?? 80);
     modeLabel.textContent = "Society";
@@ -222,19 +222,22 @@ function applyLiveEvent(event: SimEvent): void {
     liveTick = event.tick;
     liveMaxTicks = Number(event.payload.max_ticks ?? liveMaxTicks);
     livePlaybookLen = Number(event.payload.playbook_edges ?? livePlaybookLen);
-    livePhase = "tick started";
-    syncLiveHud(livePlaybookLen, livePhase);
+    livePhaseRaw = "STARTING";
+    syncLiveHud(livePlaybookLen, livePhaseRaw);
   }
   if (event.type === "tick_phase") {
     liveTick = Math.max(liveTick, event.tick);
-    livePhase = String(event.payload.phase ?? livePhase);
-    syncLiveHud(livePlaybookLen, livePhase);
+    livePhaseRaw = String(event.payload.phase ?? livePhaseRaw);
+    syncLiveHud(livePlaybookLen, formatPhaseDetail({ live_phase: livePhaseRaw }));
   }
   if (event.type === "attention_progress" && event.payload.source !== "poll") {
     liveTick = Math.max(liveTick, event.tick);
     livePlaybookLen = Number(event.payload.matched ?? livePlaybookLen);
-    livePhase = `ATTEND ${event.payload.done}/${event.payload.total}`;
-    syncLiveHud(livePlaybookLen, livePhase);
+    livePhaseRaw = "ATTEND";
+    syncLiveHud(
+      livePlaybookLen,
+      `ATTEND ${event.payload.done}/${event.payload.total}`,
+    );
   }
   if (event.tick !== undefined) {
     liveTick = Math.max(liveTick, event.tick);
@@ -244,7 +247,7 @@ function applyLiveEvent(event: SimEvent): void {
   if (event.type === "auditor_regret") regretLabel.textContent = `Regret ${(event.payload.regret as number).toFixed(2)}`;
   if (event.type === "sim_complete") {
     liveTick = Math.max(liveTick, event.tick);
-    livePhase = "complete";
+    livePhaseRaw = "complete";
     stopStatePolling();
     void finalizeFromServer();
     api<{ comparison?: ComparisonMetrics }>("/metrics").then((m) => {
@@ -320,7 +323,11 @@ async function deployColony() {
     if (s.running) {
       liveMaxTicks = s.max_ticks ?? liveMaxTicks;
       liveTick = s.tick ?? liveTick;
-      syncLiveHud(Array.isArray(s.playbook) ? s.playbook.length : 0, livePhase);
+      if (s.live_phase) livePhaseRaw = s.live_phase;
+      syncLiveHud(
+        Array.isArray(s.playbook) ? s.playbook.length : 0,
+        formatPhaseDetail(s),
+      );
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
