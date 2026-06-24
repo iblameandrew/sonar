@@ -20,7 +20,11 @@ export class SSEClient {
     };
     this.source.onmessage = (msg) => {
       try {
-        const event: SimEvent = JSON.parse(msg.data);
+        let raw = msg.data.trim();
+        if (raw.startsWith("data:")) {
+          raw = raw.slice(raw.indexOf(":") + 1).trim();
+        }
+        const event: SimEvent = JSON.parse(raw);
         this.globalHandlers.forEach((h) => h(event));
         const typed = this.handlers.get(event.type);
         typed?.forEach((h) => h(event));

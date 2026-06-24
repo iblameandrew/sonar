@@ -256,17 +256,18 @@ class SimulationRunner:
             return self.state
 
     async def event_stream(self) -> AsyncGenerator[str, None]:
+        """Yield JSON payloads only — EventSourceResponse adds the SSE data: framing."""
         while True:
             try:
                 event = await asyncio.wait_for(self.event_queue.get(), timeout=10.0)
-                yield f"data: {json.dumps(event.to_sse())}\n\n"
+                yield json.dumps(event.to_sse())
             except asyncio.TimeoutError:
                 tick = 0
                 if self.state:
                     tick = self.state["tick"]
                 elif self.baseline_state:
                     tick = self.baseline_state["tick"]
-                yield f"data: {json.dumps({'type': 'heartbeat', 'tick': tick})}\n\n"
+                yield json.dumps({"type": "heartbeat", "tick": tick})
 
     def get_state_snapshot(self) -> dict[str, Any] | None:
         if not self.state:
