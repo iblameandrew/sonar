@@ -75,7 +75,13 @@ html, body, #app {
   text-shadow: 0 1px 4px rgba(255, 255, 255, 0.8);
 }
 
-.brand-icon { color: var(--grass); font-size: 18px; }
+.brand-icon {
+  width: 20px;
+  height: 20px;
+  image-rendering: pixelated;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(45, 90, 50, 0.2);
+}
 
 .stage-stats {
   display: flex;
