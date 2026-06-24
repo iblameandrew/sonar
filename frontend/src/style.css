@@ -360,6 +360,17 @@ html, body, #app {
   filter: grayscale(0.15);
 }
 .btn-warn { border-color: #ffab91; color: #d84315; background: #fff3e0; }
+.btn-reset {
+  width: 100%;
+  margin-bottom: 10px;
+  border-color: #90a4ae;
+  color: #455a64;
+  background: #eceff1;
+}
+.btn-reset:hover:not(:disabled) {
+  background: #cfd8dc;
+  border-color: #607d8b;
+}
 .qwen-error { color: #c62828; font-size: 11px; margin-top: 6px; line-height: 1.4; }
 
 .api-key-row { display: flex; gap: 8px; margin-bottom: 8px; }

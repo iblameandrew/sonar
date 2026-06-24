@@ -293,6 +293,32 @@ export class ColonyScene {
     this.colonyPurpose = goal.trim();
   }
 
+  /** Clear agents, playbook edges, and debate overlays for a fresh colony. */
+  resetColony(): void {
+    this.hideCellTooltip();
+    for (const line of this.connectionLines) {
+      this.scene.remove(line);
+      line.geometry.dispose();
+      (line.material as THREE.Material).dispose();
+    }
+    this.connectionLines = [];
+    for (const pts of this.debateParticles) {
+      this.scene.remove(pts);
+      pts.geometry.dispose();
+      (pts.material as THREE.Material).dispose();
+    }
+    this.debateParticles = [];
+    for (const hull of this.institutionHulls) {
+      this.scene.remove(hull);
+      hull.geometry.dispose();
+      (hull.material as THREE.Material).dispose();
+    }
+    this.institutionHulls = [];
+    if (this.conflictRing) this.conflictRing.visible = false;
+    for (const id of [...this.agents.keys()]) this.removeAgent(id);
+    this.onAgentSelect?.(null);
+  }
+
   /** Blueprint voxels are metadata only — terrain shows agents, not decorative blocks. */
   loadColonyVoxels(_voxels: { x: number; y: number; color: string }[]): void {}
 

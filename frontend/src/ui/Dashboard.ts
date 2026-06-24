@@ -567,6 +567,20 @@ export class Dashboard {
     this.lastProgressKey = `done:${tick}`;
   }
 
+  resetColonyUi(): void {
+    this.streamStatusEl.textContent = "Stream: idle";
+    this.streamStatusEl.classList.remove("status-live", "status-warn");
+    this.lastProgressKey = "";
+    this.taskEl.innerHTML = "";
+    this.negEl.innerHTML = "";
+    this.logEl.innerHTML = "";
+    this.movementEl.innerHTML = "";
+    if (this.activePolicyEl) {
+      this.activePolicyEl.textContent =
+        "Not deployed yet — configure heads above, then Deploy Colony.";
+    }
+  }
+
   private formatEventLine(event: SimEvent): string {
     const p = event.payload ?? {};
     switch (event.type) {

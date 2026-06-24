@@ -186,6 +186,31 @@ class SimulationRunner:
                 self.live_phase = "TICK_DONE"
         return {"status": "stopped"}
 
+    async def reset(self) -> dict[str, str]:
+        """Stop any run and return the runner to a fresh idle colony."""
+        async with self._lock:
+            if self._task and not self._task.done():
+                self._task.cancel()
+                try:
+                    await self._task
+                except asyncio.CancelledError:
+                    pass
+            self._task = None
+            while True:
+                try:
+                    self.event_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+            engine.playbook_store.playbook = SocialPlaybook()
+            engine.custodian.weights = {}
+            self.state = None
+            self.baseline_state = None
+            self.final_answer = ""
+            self.run_id = ""
+            self.execution_mode = "idle"
+            self.reset_live_progress()
+        return {"status": "reset"}
+
     async def step(self) -> SimulationState | None:
         if self.execution_mode == "baseline" and self.baseline_state:
             async with self._lock:

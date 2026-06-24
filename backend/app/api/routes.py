@@ -207,6 +207,11 @@ async def stop_sim() -> dict[str, str]:
     return await runner.stop()
 
 
+@router.post("/sim/reset")
+async def reset_sim() -> dict[str, str]:
+    return await runner.reset()
+
+
 @router.post("/sim/step")
 async def step_sim() -> dict[str, Any]:
     await runner.step()

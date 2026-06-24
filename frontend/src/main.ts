@@ -395,6 +395,48 @@ async function deployColony() {
   }
 }
 
+async function resetColony(): Promise<void> {
+  if (deployInFlight) return;
+
+  stopStatePolling();
+  currentRunId = "";
+  liveTick = 0;
+  livePhaseRaw = "idle";
+  livePlaybookLen = 0;
+  pollSnapshot = { tick: -1, playbookLen: 0, running: false };
+
+  answerModal.clearAndHide();
+  setColonyRunning(false);
+  inspectPanel.classList.add("hidden");
+
+  try {
+    await api("/sim/reset", "POST");
+    const state = await api<LiveState & {
+      qwen?: QwenStatus;
+      attention_policy?: AttentionPolicy;
+      attention_policy_preview?: PolicyPreview[];
+    }>("/state");
+
+    scene?.resetColony();
+    dashboard.resetColonyUi();
+    await hydrateFromState(state);
+
+    tickLabel.textContent = "Tick 0";
+    phaseLabel.textContent = "concept";
+    regretLabel.textContent = "Regret —";
+    modeLabel.textContent = "Idle";
+    setActiveGoal("");
+    updateStatus(state);
+    dashboard.updateStreamStatus(sse.isConnected(), "colony reset");
+    dashboard.logEvent({ type: "colony_reset", tick: 0, payload: { message: "Colony reset to idle" } }, { force: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    modeLabel.textContent = "Error";
+    activeGoalEl.textContent = `Reset failed: ${msg}`;
+    setColonyRunning(false);
+  }
+}
+
 function wireControls(): void {
   document.getElementById("btn-recenter")!.onclick = () => scene?.recenter();
   document.getElementById("btn-view-answer")!.onclick = () => {
@@ -411,6 +453,7 @@ function wireControls(): void {
   document.getElementById("btn-step")!.onclick = () => api("/sim/step", "POST");
   document.getElementById("btn-phase")!.onclick = () => api("/sim/advance-phase", "POST");
   document.getElementById("btn-pause")!.onclick = () => api("/sim/pause", "POST");
+  document.getElementById("btn-reset")!.onclick = () => void resetColony();
 }
 
 function startRenderLoop(): void {
