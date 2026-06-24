@@ -1,3 +1,10 @@
+import {
+  clearStoredApiKey,
+  getStoredApiKey,
+  isRememberEnabled,
+  saveApiKey,
+  setRememberEnabled,
+} from "../storage/apiKeyStorage";
 import type { Agent, ColonyInfo, ComparisonMetrics, NegotiationRound, ProjectCanvas, SimEvent } from "../types";
 import type { ColonyScene } from "../scene/ColonyScene";
 
@@ -32,6 +39,7 @@ export class Dashboard {
   private qwenModelsEl: HTMLElement;
   private badgeEl: HTMLElement;
   private apiInput: HTMLInputElement;
+  private rememberKeyInput: HTMLInputElement;
   private colonyStatsEl: HTMLElement;
   private sectorEl: HTMLElement;
   private registryEl: HTMLElement;
@@ -49,6 +57,7 @@ export class Dashboard {
     this.qwenModelsEl = document.getElementById("qwen-models")!;
     this.badgeEl = document.getElementById("qwen-badge")!;
     this.apiInput = document.getElementById("api-key-input") as HTMLInputElement;
+    this.rememberKeyInput = document.getElementById("api-key-remember") as HTMLInputElement;
     this.colonyStatsEl = document.getElementById("colony-stats")!;
     this.sectorEl = document.getElementById("sector-stats")!;
     this.registryEl = document.getElementById("agent-registry")!;
@@ -81,19 +90,50 @@ export class Dashboard {
   }
 
   private initApiKey(): void {
+    this.rememberKeyInput.checked = isRememberEnabled();
+
+    this.rememberKeyInput.addEventListener("change", () => {
+      setRememberEnabled(this.rememberKeyInput.checked);
+    });
+
     document.getElementById("btn-save-key")!.addEventListener("click", async () => {
       const key = this.apiInput.value.trim();
       if (!key) return;
-      const res = await fetch("/api/qwen/api-key", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ api_key: key }),
-      });
-      const status: QwenStatus = await res.json();
-      this.renderQwen(status);
-      this.apiInput.value = "";
-      this.switchTab("settings");
+      await this.submitApiKey(key);
     });
+  }
+
+  private async submitApiKey(key: string, opts?: { silent?: boolean }): Promise<QwenStatus | null> {
+    const res = await fetch("/api/qwen/api-key", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ api_key: key }),
+    });
+    if (!res.ok) return null;
+
+    const status: QwenStatus = await res.json();
+    this.renderQwen(status);
+
+    if (this.rememberKeyInput.checked) {
+      saveApiKey(key);
+    } else {
+      clearStoredApiKey();
+      setRememberEnabled(false);
+    }
+
+    this.apiInput.value = "";
+    if (!opts?.silent) this.switchTab("settings");
+    return status;
+  }
+
+  async restoreStoredApiKey(status?: QwenStatus): Promise<void> {
+    this.rememberKeyInput.checked = isRememberEnabled();
+    if (status?.configured) return;
+
+    const stored = getStoredApiKey();
+    if (!stored) return;
+
+    await this.submitApiKey(stored, { silent: true });
   }
 
   private initLayers(): void {
@@ -122,7 +162,9 @@ export class Dashboard {
 
   async loadQwen(): Promise<void> {
     const res = await fetch("/api/qwen/status");
-    this.renderQwen(await res.json());
+    const status: QwenStatus = await res.json();
+    this.renderQwen(status);
+    await this.restoreStoredApiKey(status);
   }
 
   updateQwen(status: QwenStatus): void {

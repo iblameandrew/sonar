@@ -101,11 +101,16 @@
 
             <section class="tab-panel" id="tab-settings">
               <h2>Qwen Cloud API</h2>
-              <p class="hint">All agents use DashScope. Key is stored server-side for this session.</p>
+              <p class="hint">All agents use DashScope. Key is sent to the backend for the current session.</p>
               <div class="api-key-row">
                 <input id="api-key-input" type="password" placeholder="sk-… DashScope API key" autocomplete="off" />
                 <button id="btn-save-key" class="btn btn-primary">Connect</button>
               </div>
+              <label class="remember-key">
+                <input id="api-key-remember" type="checkbox" />
+                <span>Remember API key in this browser</span>
+              </label>
+              <p class="hint hint-warn">Saved keys stay in local browser storage — avoid on shared computers.</p>
               <div id="qwen-status" class="status-card">Loading provider status…</div>
 
               <h2>Model per Role</h2>
