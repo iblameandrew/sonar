@@ -1,4 +1,4 @@
-"""Generate voxel pixel-art favicon PNGs for Sociomorphic Computing."""
+"""Generate voxel pixel-art favicon PNGs for Colony."""
 
 from __future__ import annotations
 

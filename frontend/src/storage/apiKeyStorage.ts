@@ -1,5 +1,5 @@
-const REMEMBER_KEY = "sociomorphic.qwen.remember";
-const API_KEY_KEY = "sociomorphic.qwen.api_key";
+const REMEMBER_KEY = "colony.qwen.remember";
+const API_KEY_KEY = "colony.qwen.api_key";
 
 export function isRememberEnabled(): boolean {
   return localStorage.getItem(REMEMBER_KEY) === "1";

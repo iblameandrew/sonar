@@ -29,7 +29,7 @@ WORKER_NOUNS = ["grain", "spark", "trail", "node", "pulse", "mark"]
 WORKER_ADJ = ["alert", "busy", "calm", "eager", "restless"]
 
 INITIAL_SUBTASKS = [
-    ("Architecture", "Define Sociomorphic Computing system architecture and module boundaries", None),
+    ("Architecture", "Define Colony system architecture and module boundaries", None),
     ("Voxel Viz", "Implement Conway colony visualization", "Architecture"),
     ("LangGraph Core", "Build PERFORM→ATTEND→AUDIT→REFORM→CONFESS graph", "Architecture"),
     ("SSE Pipeline", "Wire live SSE event stream to frontend", "LangGraph Core"),
@@ -87,7 +87,7 @@ def create_project_canvas(user_prompt: str | None = None) -> ProjectCanvas:
     from app.models.canvas import ProjectCanvas, Subtask
 
     prompt = (user_prompt or "").strip()
-    goal = prompt or "Build Sociomorphic Computing — qualitative social physics as software"
+    goal = prompt or "Build Colony — qualitative social physics as software"
     subtasks = _subtasks_for_prompt(goal) if prompt else _default_subtasks()
     return ProjectCanvas(goal=goal, requirements=SOCIETY_REQUIREMENTS, subtasks=subtasks)
 
@@ -135,7 +135,7 @@ def _subtasks_for_prompt(goal: str) -> list[Subtask]:
 
 
 DEFAULT_OUGHT: dict = {
-    "description": "Sociomorphic Computing must be demo-ready with society outperforming single-agent baseline",
+    "description": "Colony must be demo-ready with society outperforming single-agent baseline",
     "desired_adjectives": ["collaborative", "transparent", "efficient", "demo-ready"],
     "society_modules": [
         "voxel_visualization",

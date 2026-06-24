@@ -27,7 +27,7 @@ CONFLICT_PROMPT = ChatPromptTemplate.from_messages(
             "human",
             "Regret: {regret}\nNarrative: {narrative}\n"
             "Disputants: {agents}\nRecent negotiations: {negotiations}\n"
-            "Mediate conflict. Propose compromise or voting outcome for Sociomorphic Computing architecture.",
+            "Mediate conflict. Propose compromise or voting outcome for Colony architecture.",
         ),
     ]
 )

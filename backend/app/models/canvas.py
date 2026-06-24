@@ -42,7 +42,7 @@ class NegotiationRound(BaseModel):
 
 
 class ProjectCanvas(BaseModel):
-    goal: str = "Build Sociomorphic Computing — qualitative social physics as software"
+    goal: str = "Build Colony — qualitative social physics as software"
     requirements: list[str] = Field(default_factory=list)
     subtasks: list[Subtask] = Field(default_factory=list)
     artifacts: list[Artifact] = Field(default_factory=list)

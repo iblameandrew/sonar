@@ -1,9 +1,9 @@
 <p align="center">
-  <img src="docs/sociomorphic-banner.jpg" alt="Sociomorphic Computing — Agent Society Colony" width="100%" />
+  <img src="docs/colony-banner.jpg" alt="Colony — Agent Society on a Conway Grid" width="100%" />
 </p>
 
-<h1 align="center">Sociomorphic Computing</h1>
-<p align="center"><strong>The Attention Agent Society</strong></p>
+<h1 align="center">Colony</h1>
+<p align="center"><strong>Agent society on a Conway grid</strong></p>
 <p align="center">
   A transformer architecture reinterpreted as living social physics —<br/>
   gamified into conscious agents on a Conway ant-farm colony, orchestrated by LangGraph, powered by Qwen Cloud.
@@ -20,7 +20,7 @@
 
 ## What is this?
 
-**Sociomorphic Computing** is an exploration in qualitative social physics: dozens (or hundreds) of specialist agents inhabit a shared grid, negotiate tasks, resolve conflicts, and iteratively build a collaborative workspace — while you watch them move across a **Conway's Game of Life** substrate in an isometric ant-colony view.
+**Colony** is an exploration in qualitative social physics: dozens (or hundreds) of specialist agents inhabit a shared grid, negotiate tasks, resolve conflicts, and iteratively build a collaborative workspace — while you watch them move across a **Conway's Game of Life** substrate in an isometric ant-colony view.
 
 The society is not a chatroom. It is a **closed learning loop** where agents perform work, form qualitative dependencies, audit collective regret, reform when misaligned, and confess learnings back into institutional memory. Under the hood, every tick is a ritual cycle of action, reflection, judgment, and renewal — the forward and backward passes of a transformer, made visible.
 
@@ -36,7 +36,7 @@ The society is not a chatroom. It is a **closed learning loop** where agents per
 
 ### Gamified social physics
 
-The Attention Agent Society reinterprets the transformer block as a **living system of conscious agents**. Every mathematical primitive becomes a qualitative, agentic role guided by a distinct philosophical principle. Forward and backward passes become ritual cycles of action, reflection, judgment, and renewal — producing emergent social and creative intelligence rather than silent matrix multiplication.
+Colony reinterprets the transformer block as a **living system of conscious agents**. Every mathematical primitive becomes a qualitative, agentic role guided by a distinct philosophical principle. Forward and backward passes become ritual cycles of action, reflection, judgment, and renewal — producing emergent social and creative intelligence rather than silent matrix multiplication.
 
 This is not metaphor layered on top of engineering. It is the **design grammar** of the system: each agent embodies a computational function *and* a conceptual archetype, so the simulation can be read simultaneously as software and as philosophy.
 
@@ -60,7 +60,7 @@ This is not metaphor layered on top of engineering. It is the **design grammar**
 
 ### The mandala of computation
 
-The Attention Agent Society is a complete gamification of the transformer architecture into qualitative social physics. Each core neural operation is embodied as a conscious agent guided by a distinct philosophical principle:
+Colony is a complete gamification of the transformer architecture into qualitative social physics. Each core neural operation is embodied as a conscious agent guided by a distinct philosophical principle:
 
 - **Loss Agent** enforces discernment and purification.
 - **Residual Flow Agent** enables compassionate return and memory.
@@ -284,7 +284,7 @@ Suggested mapping (June 2026):
 ## Architecture
 
 ```
-sociomorphic-computing/
+colony/
 ├── backend/
 │   └── app/
 │       ├── agents/          # Attention, Auditor, Negotiator, …
@@ -300,7 +300,7 @@ sociomorphic-computing/
 │       ├── ui/Dashboard.ts      # Tabbed dashboard + colony panel
 │       └── sse/client.ts        # Live event stream
 └── docs/
-    └── sociomorphic-banner.jpg       # Retro voxel banner (Grok Imagine)
+    └── colony-banner.jpg             # Retro voxel banner (Grok Imagine)
 ```
 
 **Backend:** FastAPI · LangGraph · LangChain · Pydantic · SSE-Starlette · scikit-learn (Attention embeddings)
@@ -319,7 +319,7 @@ After running both modes, the dashboard compares:
 - **Negotiation rounds**
 - **Transparency events** (SSE + playbook entries)
 - **Token usage** (Qwen Cloud)
-- **Society progress** (%)
+- **Colony progress** (%)
 
 The society is designed to win on **quality and transparency** while the baseline wins on raw iteration count — making the tradeoff visible and measurable.
 

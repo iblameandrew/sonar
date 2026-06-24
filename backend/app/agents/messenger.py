@@ -18,7 +18,7 @@ PROPOSE_PROMPT = ChatPromptTemplate.from_messages(
             "human",
             "Agent: {name} ({role})\nVerbs: {verbs}\nNouns: {nouns}\n"
             "Task: {task_title} — {task_desc}\nPhase: {phase}\n"
-            "Write a concise engineering proposal or code skeleton for Sociomorphic Computing (2-4 sentences).",
+            "Write a concise engineering proposal or code skeleton for Colony (2-4 sentences).",
         ),
     ]
 )

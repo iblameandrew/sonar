@@ -262,7 +262,7 @@ export class Dashboard {
       <div class="metric-row"><span>Negotiations</span><span class="metric-win">${s.negotiations}</span></div>
       <div class="metric-row"><span>Transparency</span><span class="metric-win">${s.transparency_events}</span></div>
       <div class="metric-row"><span>Tokens</span><span>S:${s.tokens_estimate} B:${b.tokens_estimate}</span></div>
-      <div class="metric-row"><span>Society progress</span><span>${(s.features_complete * 100).toFixed(0)}%</span></div>
+      <div class="metric-row"><span>Colony progress</span><span>${(s.features_complete * 100).toFixed(0)}%</span></div>
       <p style="margin-top:10px;font-size:11px;color:var(--text-muted)">${metrics.summary}</p>
     `;
   }

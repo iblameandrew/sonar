@@ -26,7 +26,7 @@ AUDIT_PROMPT = ChatPromptTemplate.from_messages(
             "Tasks done: {tasks_done}/{tasks_total}\n"
             "Artifacts: {artifacts}\nNegotiations: {negotiations}\n"
             "Playbook size: {playbook_size}\n"
-            "Score Sociomorphic Computing engineering progress. Emit regret 0-1, quality_score 0-1, narrative.",
+            "Score Colony engineering progress. Emit regret 0-1, quality_score 0-1, narrative.",
         ),
     ]
 )
@@ -97,7 +97,7 @@ class Auditor:
         quality = overlap * 0.3 + task_score * 0.7
         regret = max(0.0, min(1.0, 1.0 - quality))
         narrative = (
-            f"Sociomorphic audit (heuristic): quality={quality:.2f} "
+            f"Colony audit (heuristic): quality={quality:.2f} "
             f"tasks {done_tasks}/{total_tasks} playbook={playbook_size}"
         )
         return regret, narrative, quality, regret >= 0.55
