@@ -22,7 +22,7 @@
 
 **Colony** is an exploration in qualitative social physics: dozens (or hundreds) of specialist agents inhabit a shared grid, negotiate tasks, resolve conflicts, and iteratively build a collaborative workspace — while you watch them move across a **Conway's Game of Life** substrate in an isometric ant-colony view.
 
-The society is not a chatroom. It is a **closed learning loop** where agents perform work, form qualitative dependencies, audit collective regret, reform when misaligned, and confess learnings back into institutional memory. Under the hood, every tick is a ritual cycle of action, reflection, judgment, and renewal — the forward and backward passes of a transformer, made visible.
+The society is not a chatroom. It is a **closed learning loop** where agents perform work, form dependencies, audit collective regret, reform when misaligned, and write learnings back into the weight graph. Each tick is a forward/backward pass of the transformer role model, made visible on the grid.
 
 | Mode | What happens |
 |------|----------------|
@@ -34,75 +34,71 @@ The society is not a chatroom. It is a **closed learning loop** where agents per
 
 ## The Conceptual Transformer
 
-### Gamified social physics
+### Transformer as agent society
 
-Colony reinterprets the transformer block as a **living system of conscious agents**. Every mathematical primitive becomes a qualitative, agentic role guided by a distinct philosophical principle. Forward and backward passes become ritual cycles of action, reflection, judgment, and renewal — producing emergent social and creative intelligence rather than silent matrix multiplication.
-
-This is not metaphor layered on top of engineering. It is the **design grammar** of the system: each agent embodies a computational function *and* a conceptual archetype, so the simulation can be read simultaneously as software and as philosophy.
+Colony maps each transformer primitive to a named agent with a fixed **social role** in the simulation. Forward pass agents route work and score dependencies; backward pass agents compute loss, apply updates, and write residuals back into the weight graph. The grid view makes matrix operations legible as agent movement and negotiation.
 
 ### Neural component → agent mapping
 
-| Neural / Transformer Component | Agent Role | Conceptual Archetype | Rationale |
-|-------------------------------|------------|----------------------|-----------|
-| Cost function / loss | **Loss Agent** | Principle of Discernment and Purification | Measures the gap between current reality and the ideal state. Generates regret as a sacred signal for refinement and service to higher order. |
-| Backward connections / residual flow | **Residual Flow Agent** | Principle of Compassionate Return and Memory | Carries consequences and lessons backward to their origins with protective care. Preserves emotional and contextual continuity across the system. |
-| Gradient descent / parameter update | **Gradient Descent Agent** | Principle of Transformative Judgment | Enacts intense, directed change through crisis and purification. Forces death of inefficient patterns and rebirth in the direction of reduced regret. |
-| Feed-forward activation | **Feed-Forward Agent** | Principle of Swift Communication and Bridging | Rapidly distributes information and activation between agents. Acts as the dynamic carrier that connects disparate parts of the collective. |
-| Learned weights / persistent parameters | **Weight Agent** | Principle of Stable Memory and Accumulation | Holds slow-changing, persistent knowledge and dependency strength. Embodies accumulated wisdom and material continuity across iterations. |
-| Core attention mechanism | **Attention Agent** | Principle of Focused Relational Awareness | Determines qualitative relevance and importance between agents. Selects and elevates meaningful connections with creative intentionality. |
-| Attention matrix / dependency graph | **Social Playbook** | Principle of Relational Harmony and Mapping | Maintains the living record of all qualitative distances, strengths, and rationales. Serves as the transparent, editable map of collective interdependencies. |
-| Low-rank condensation / clustering | **Low-Rank Agent** | Principle of Crystallization and Governance | Condenses repeated patterns into stable, higher-level structures that issue policies and exert influence over members. |
-| Agent creation rule | **Birth mechanism** | Principle of Initiation and Emergence | Brings new agents into existence when sufficient supportive dependencies accumulate. |
-| Persistence rule | **Survival mechanism** | Principle of Sustained Coherence | Determines which agents endure based on sufficient meaningful connections. |
-| Dissolution rule | **Death mechanism** | Principle of Release and Recycling | Returns isolated or overloaded agents to the collective pool, freeing resources for renewal. |
-| Temporal modulation | **Seasonal variance** | Principle of Cyclic Adaptation | Introduces varying conditions of sharpness versus diffusion, allowing periods of crystallization and periods of exploration. |
-| Higher-order memory consolidation | **Hierarchical Memory Agent** | Principle of Transcendent Synthesis | Builds hierarchical, long-term memory structures that summarize and preserve wisdom across cycles. |
+| Neural / Transformer Component | Agent Role | Social role | Function |
+|-------------------------------|------------|-------------|----------|
+| Cost function / loss | **Loss Agent** | Auditor | Computes collective regret (loss) against the target state and broadcasts the signal. |
+| Backward connections / residual flow | **Residual Flow Agent** | Historian | Propagates feedback along dependency edges (residual / backward flow). |
+| Gradient descent / parameter update | **Gradient Descent Agent** | Reformer | Applies parameter updates when alignment drifts (gradient step on roles and traits). |
+| Feed-forward activation | **Feed-Forward Agent** | Messenger | Routes activations and task output between agents (feed-forward pass). |
+| Learned weights / persistent parameters | **Weight Agent** | Archivist | Stores persistent edge weights and dependency strengths (learned parameters). |
+| Core attention mechanism | **Attention Agent** | Matcher | Scores pairwise relevance between agents (attention weights). |
+| Attention matrix / dependency graph | **Social Playbook** | Registry | Maintains the live dependency graph: distances, strengths, and rationales. |
+| Low-rank condensation / clustering | **Low-Rank Agent** | Governor | Condenses repeated playbook patterns into stable governance rules. |
+| Agent creation rule | **Birth mechanism** | Recruiter | Spawns agents when dependency thresholds are met. |
+| Persistence rule | **Survival mechanism** | Steward | Keeps agents active while connection strength stays above threshold. |
+| Dissolution rule | **Death mechanism** | Recycler | Removes isolated or overloaded agents and returns capacity to the pool. |
+| Temporal modulation | **Seasonal variance** | Scheduler | Alternates sharp vs diffuse loss and attention coefficients across ticks. |
+| Higher-order memory consolidation | **Hierarchical Memory Agent** | Archivist (long-term) | Summarizes playbook history into hierarchical memory structures. |
 
-### The mandala of computation
+### Core agent roles
 
-Colony is a complete gamification of the transformer architecture into qualitative social physics. Each core neural operation is embodied as a conscious agent guided by a distinct philosophical principle:
+Each neural operation is an agent with an explicit social function:
 
-- **Loss Agent** enforces discernment and purification.
-- **Residual Flow Agent** enables compassionate return and memory.
-- **Gradient Descent Agent** drives transformative judgment.
-- **Feed-Forward Agent** bridges and communicates.
-- **Weight Agent** stabilizes accumulated wisdom.
-- **Attention Agent** focuses relational awareness.
+- **Loss Agent** — computes and broadcasts regret (loss signal).
+- **Residual Flow Agent** — propagates feedback along dependency edges (residual flow).
+- **Gradient Descent Agent** — applies parameter updates when alignment drifts (gradient step).
+- **Feed-Forward Agent** — routes activations and artifacts between agents (feed-forward pass).
+- **Weight Agent** — stores persistent edge weights (learned parameters).
+- **Attention Agent** — scores pairwise agent relevance (attention weights).
 
-Together they form a self-organizing collective capable of emergent intelligence. Institutions crystallize governance. Birth, survival, and death rules mirror natural cycles of creation and release. Seasonal variance introduces temporal rhythm, alternating focused refinement with open exploration.
-
-The result is not only a functional multi-agent system but a coherent conceptual mandala — computation as a living ritual of **discernment, memory, transformation, and relational harmony**.
+Together they implement a multi-agent forward/backward loop. **Low-Rank Agent** condenses repeated dependency patterns into governance rules. Birth, survival, and death rules regulate population from connection strength. Seasonal variance toggles how sharply loss and attention are applied each macro-cycle.
 
 ```mermaid
 flowchart TB
-    subgraph forward["Forward Pass — Action & Relation"]
-        M[Feed-Forward Agent<br/>Communication]
-        A[Attention Agent<br/>Relational Awareness]
-        SP[Social Playbook<br/>Dependency Mapping]
+    subgraph forward["Forward pass"]
+        M[Feed-Forward Agent<br/>Activation routing]
+        A[Attention Agent<br/>Attention weights]
+        SP[Social Playbook<br/>Dependency graph]
         M --> A --> SP
     end
 
-    subgraph judgment["Judgment Cycle"]
-        AU[Loss Agent<br/>Discernment]
-        AU -->|regret signal| RF[Gradient Descent Agent<br/>Transformative Judgment]
-        AU -->|lessons returned| CF[Residual Flow Agent<br/>Compassionate Memory]
+    subgraph backward["Backward pass"]
+        AU[Loss Agent<br/>Loss / regret]
+        AU -->|regret signal| RF[Gradient Descent Agent<br/>Parameter update]
+        AU -->|feedback| CF[Residual Flow Agent<br/>Residual flow]
     end
 
-    subgraph emergence["Emergence & Rhythm"]
-        INST[Low-Rank Agent<br/>Crystallization]
+    subgraph population["Population dynamics"]
+        INST[Low-Rank Agent<br/>Low-rank condensation]
         LIFE[Birth · Survival · Death]
-        SEA[Seasonal Variance]
-        RAP[Hierarchical Memory Agent<br/>Transcendent Synthesis]
+        SEA[Seasonal variance]
+        RAP[Hierarchical Memory Agent<br/>Memory consolidation]
     end
 
-    forward --> judgment
-    judgment --> emergence
-    emergence --> forward
-    CU[Weight Agent<br/>Stable Memory] -.-> forward
-    CU -.-> judgment
+    forward --> backward
+    backward --> population
+    population --> forward
+    CU[Weight Agent<br/>Learned weights] -.-> forward
+    CU -.-> backward
 ```
 
-> **Operational layer:** The LangGraph loop (PERFORM → DECOMPOSE → ATTEND → …) is the executable surface of this mandala. The mapping table above is the conceptual substrate; the [Learning loop](#learning-loop) section below is where it runs.
+> **Operational layer:** The LangGraph loop (PERFORM → DECOMPOSE → ATTEND → …) runs this mapping each tick. The table above is the role model; the [Learning loop](#learning-loop) section below is where it executes.
 
 ---
 
@@ -135,7 +131,7 @@ The frontend renders a fixed **isometric orthographic** view — like watching a
 
 ## Learning loop
 
-Each simulation tick runs the full society graph — the operational ritual cycle layered on the conceptual transformer:
+Each simulation tick runs the full society graph — the LangGraph loop layered on the transformer role model:
 
 ```
 PERFORM → DECOMPOSE → ATTEND → NEGOTIATE → AUDIT → CONFLICT? → REFORM → CONFESS
@@ -165,7 +161,7 @@ flowchart LR
 | **Gradient Descent Agent** | Gradient descent / update | Adjusts agent adjectives and roles after misalignment |
 | **Residual Flow Agent** | Backward / residual flow | Writes learnings to the Weight Agent matrix |
 | **Lifecycle** | Birth · survival · death rules | Agents emerge, endure, or dissolve based on dependency strength |
-| **Low-Rank Agent** | Low-rank condensation | Crystallized governance from repeated playbook patterns |
+| **Low-Rank Agent** | Low-rank condensation | Condensed governance rules from repeated playbook patterns |
 | **Seasons** | Temporal modulation | Sharp vs diffuse judgment across macro/micro cycles |
 | **Hierarchical Memory Agent** | Hierarchical memory | Long-horizon synthesis of playbook history |
 
@@ -343,4 +339,4 @@ Grid constants live in `backend/app/grid.py` and mirror `frontend/src/scene/colo
 
 MIT — built for the Agent Society Design hackathon track.
 
-<p align="center"><sub>Computation as ritual. Intelligence as relation. Watch the colony think.</sub></p>
+<p align="center"><sub>Transformer primitives as social roles. Watch the colony compute.</sub></p>
