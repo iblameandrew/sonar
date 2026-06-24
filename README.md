@@ -349,6 +349,52 @@ With the **minimum colony size (6 agents)** — six specialists, zero workers �
 
 > **Agent count floor:** The UI and backend enforce `agent_count ≥ 6` (`create_colony_agents` clamps to 6–512). Below that, the colony still runs six specialists.
 
+### Architecture disagreements
+
+**Architecture disagreements** are the narrative label for **high-loss conflict rounds** — simulated disputes over how the colony should structure the build. They are not a separate mechanic; they are what the **CONFLICT** phase produces when collective regret is high.
+
+**When they fire**
+
+The `ConflictResolver` (`Intervention Agent`) runs only when:
+
+1. **Auditor regret ≥ 0.55** after AUDIT — the colony is misaligned with the *ought* snapshot, or
+2. You click **Inject Conflict** in the UI (`POST /api/sim/inject-conflict`), which forces a round for demo purposes.
+
+This is the “high-loss gate” in the transformer analogue: loss spikes → intervention → compromise → reform continues.
+
+**What happens**
+
+The first two agents in the roster act as **disputants**. The resolver mediates one structured round:
+
+| Field | Meaning |
+|-------|---------|
+| **Topic** | Usually a Colony-wide design question (not a single subtask) |
+| **Proposal / counter-offer** | Competing approaches attributed to each disputant |
+| **Outcome** | `compromise`, `voting`, or similar |
+| **Decision** | Final resolution text, appended to the project canvas |
+
+With Qwen enabled, the `Intervention Agent` generates topic and wording from regret, the audit narrative, and recent negotiations. Without an API key, the heuristic fallback is literally titled **“Architecture disagreement”** — e.g. *modular LangGraph* vs *shared canvas*, resolved by voting.
+
+**Artifacts produced**
+
+- A `NegotiationRound` in the **Negotiations** panel
+- A canvas **decision** string
+- An **`architecture` artifact** titled “Conflict Resolution”
+- A `conflict_resolved` SSE event
+- Disputants lose `hostile` and gain `aligned` adjectives
+
+**vs task negotiations (ATTEND)**
+
+| | **Task negotiations** | **Architecture disagreements** |
+|--|----------------------|-------------------------------|
+| **Phase** | ATTEND (every tick with active tasks) | CONFLICT (regret ≥ 0.55 or injected) |
+| **Orchestrator** | `Negotiator` / Multi-Head Agent | `ConflictResolver` / Intervention Agent |
+| **Topic** | Current subtask title (e.g. “SSE Pipeline”) | Colony system design dispute |
+| **Trigger** | Two+ agents with assigned subtasks | High regret or **Inject Conflict** |
+| **Purpose** | Multi-head contention on contested work | Track 3 conflict-resolution demo |
+
+In short: when regret spikes, specialists “disagree” on how to structure the project; the Intervention Agent forces a compromise, logs it as an architecture decision, and the loop proceeds to REFORM.
+
 ### Specialist cast
 
 | Specialist | Focus |
@@ -370,7 +416,7 @@ Workers fill the meadow with foraging, patrol, and relay behaviors — scaling t
 |-------------|----------------|
 | Task decomposition & role assignment | `Input Projection Agent` + `Attention Agent` matching |
 | Dialogue & negotiation | `Multi-Head Agent` with live negotiation panel |
-| Conflict resolution | `Intervention Agent` on Loss Agent regret ≥ 0.55 |
+| Conflict resolution | `Intervention Agent` on regret ≥ 0.55 — [architecture disagreements](#architecture-disagreements) |
 | Efficiency gain | Dual mode + live metrics dashboard |
 
 ---
