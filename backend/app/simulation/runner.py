@@ -159,6 +159,24 @@ class SimulationRunner:
             self.baseline_state["paused"] = not self.baseline_state.get("paused", False)
         return self.state
 
+    async def stop(self) -> dict[str, str]:
+        """Cancel the asyncio loop and clear running flags (unblocks Deploy after stale runs)."""
+        async with self._lock:
+            if self._task and not self._task.done():
+                self._task.cancel()
+                try:
+                    await self._task
+                except asyncio.CancelledError:
+                    pass
+            self._task = None
+            if self.state:
+                self.state["running"] = False
+            if self.baseline_state:
+                self.baseline_state["running"] = False
+            if self.live_phase not in ("TICK_DONE", "complete"):
+                self.live_phase = "TICK_DONE"
+        return {"status": "stopped"}
+
     async def step(self) -> SimulationState | None:
         if self.execution_mode == "baseline" and self.baseline_state:
             async with self._lock:
@@ -301,9 +319,19 @@ class SimulationRunner:
                     tick = self.baseline_state["tick"]
                 yield json.dumps({"type": "heartbeat", "tick": tick})
 
+    def _sync_running_flag(self) -> None:
+        """Clear stale running=True when no live asyncio task is driving the loop."""
+        if not self.state or not self.state["running"]:
+            return
+        if self._task is None or self._task.done():
+            self.state["running"] = False
+            if self.live_phase not in ("TICK_DONE", "complete"):
+                self.live_phase = "TICK_DONE"
+
     def get_state_snapshot(self) -> dict[str, Any] | None:
         if not self.state:
             return None
+        self._sync_running_flag()
         s = self.state
         return {
             "tick": s["tick"],

@@ -79,6 +79,10 @@ function syncDeployButtons(): void {
   }
 }
 
+function isColonyActive(s: LiveState): boolean {
+  return s.running === true;
+}
+
 function setColonyRunning(running: boolean): void {
   colonyRunning = running;
   syncDeployButtons();
@@ -157,19 +161,25 @@ async function applyStateSnapshot(s: LiveState, opts?: { finalize?: boolean }): 
   if (s.colony) dashboard.updateColonyFromServer(s.colony);
   updateStatus({ ...s, tick: liveTick });
 
+  const wasRunning = colonyRunning;
+  const active = isColonyActive(s);
   const goal = s.canvas?.goal ?? "";
-  if (opts?.finalize || !s.running) {
+  const shouldFinalize = opts?.finalize === true || (wasRunning && !active);
+
+  if (shouldFinalize) {
     dashboard.markRunComplete(liveTick, liveMaxTicks, playbookLen, goal);
     activeGoalEl.textContent = goal
       ? `Complete · tick ${liveTick}/${liveMaxTicks} · ${goal.slice(0, 64)}`
       : `Complete · tick ${liveTick}/${liveMaxTicks}`;
     modeLabel.textContent = "Complete";
-    setColonyRunning(false);
     if (s.final_answer) showFinalAnswer(s.final_answer);
+    setColonyRunning(false);
     return;
   }
 
-  setColonyRunning(true);
+  setColonyRunning(active);
+  if (!active) return;
+
   if (s.live_phase) livePhaseRaw = s.live_phase;
   const phaseDetail = formatPhaseDetail(s);
   syncLiveHud(playbookLen, phaseDetail);
@@ -178,11 +188,12 @@ async function applyStateSnapshot(s: LiveState, opts?: { finalize?: boolean }): 
   }
 }
 
-async function finalizeFromServer(): Promise<void> {
+async function finalizeFromServer(force = false): Promise<void> {
   try {
     const s = await api<LiveState>("/state");
-    await applyStateSnapshot(s, { finalize: !s.running });
+    await applyStateSnapshot(s, { finalize: force });
   } catch {
+    setColonyRunning(false);
     dashboard.markRunComplete(liveTick, liveMaxTicks, livePlaybookLen);
   }
 }
@@ -190,8 +201,8 @@ async function finalizeFromServer(): Promise<void> {
 async function pollSimulationState(): Promise<void> {
   try {
     const s = await api<LiveState>("/state");
-    if (!s.running) {
-      await applyStateSnapshot(s, { finalize: true });
+    if (!isColonyActive(s)) {
+      await applyStateSnapshot(s, { finalize: colonyRunning });
       stopStatePolling();
       return;
     }
@@ -272,10 +283,11 @@ function applyLiveEvent(event: SimEvent): void {
   if (event.type === "sim_complete") {
     liveTick = Math.max(liveTick, event.tick);
     livePhaseRaw = "complete";
+    setColonyRunning(false);
     const answer = String(event.payload.final_answer ?? "");
     if (answer) showFinalAnswer(answer, { autoOpen: true });
     stopStatePolling();
-    void finalizeFromServer();
+    void finalizeFromServer(true);
     api<{ comparison?: ComparisonMetrics }>("/metrics").then((m) => {
       if (m.comparison) dashboard.updateMetrics(m.comparison);
     });
@@ -347,8 +359,8 @@ async function deployColony() {
     updateStatus(s);
     modeLabel.textContent = s.running ? "Society" : String(s.execution_mode ?? "Society");
     if (goal) setActiveGoal(goal);
-    setColonyRunning(Boolean(s.running));
-    if (s.running) {
+    setColonyRunning(isColonyActive(s));
+    if (isColonyActive(s)) {
       liveMaxTicks = s.max_ticks ?? liveMaxTicks;
       liveTick = s.tick ?? liveTick;
       if (s.live_phase) livePhaseRaw = s.live_phase;
@@ -456,17 +468,27 @@ async function init() {
   }
 
   try {
-    const state = await api<LiveState & {
+    let state = await api<LiveState & {
       qwen?: QwenStatus;
       attention_policy?: AttentionPolicy;
       attention_policy_preview?: PolicyPreview[];
     }>("/state");
+
+    if (
+      isColonyActive(state) &&
+      (state.tick ?? 0) === 0 &&
+      (!state.live_phase || state.live_phase === "idle")
+    ) {
+      await api("/sim/stop", "POST").catch(() => {});
+      state = await api<typeof state>("/state");
+    }
+
     await hydrateFromState(state);
     if (state.final_answer) {
       showFinalAnswer(state.final_answer, { autoOpen: false });
     }
-    setColonyRunning(Boolean(state.running));
-    if (state.running) startStatePolling();
+    setColonyRunning(isColonyActive(state));
+    if (isColonyActive(state)) startStatePolling();
   } catch (err) {
     console.error("Initial state failed:", err);
     activeGoalEl.textContent = "Backend unreachable — start the API server on :8000.";

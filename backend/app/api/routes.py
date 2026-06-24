@@ -197,6 +197,11 @@ async def pause_sim() -> dict[str, Any]:
     return {"status": "toggled", "tick": state["tick"] if state else runner.baseline_state}
 
 
+@router.post("/sim/stop")
+async def stop_sim() -> dict[str, str]:
+    return await runner.stop()
+
+
 @router.post("/sim/step")
 async def step_sim() -> dict[str, Any]:
     await runner.step()
