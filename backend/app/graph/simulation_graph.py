@@ -49,8 +49,17 @@ class SimulationEngine:
 engine = SimulationEngine()
 
 
+async def _emit_phase(tick: int, phase: str) -> None:
+    from app.simulation.runner import runner
+
+    await runner.event_queue.put(
+        SimEvent(type="tick_phase", tick=tick, payload={"phase": phase})
+    )
+
+
 async def perform_node(state: SimulationState) -> dict[str, Any]:
     tick = state["tick"]
+    await _emit_phase(tick, "PERFORM")
     phase = state.get("design_phase", "concept")
     agents, canvas, events = await asyncio.to_thread(
         engine.messenger.perform,
@@ -61,6 +70,7 @@ async def perform_node(state: SimulationState) -> dict[str, Any]:
 
 async def decompose_node(state: SimulationState) -> dict[str, Any]:
     tick = state["tick"]
+    await _emit_phase(tick, "DECOMPOSE")
     phase = state.get("design_phase", "concept")
     canvas, agents, events = await asyncio.to_thread(
         engine.decomposer.decompose,
@@ -73,6 +83,7 @@ async def attend_node(state: SimulationState) -> dict[str, Any]:
     from app.simulation.runner import runner
 
     tick = state["tick"]
+    await _emit_phase(tick, "ATTEND")
     macro, micro, phase, temperature, dominant_kind, season_weight, season_event = (
         engine.seasons.resolve(tick)
     )
@@ -136,6 +147,7 @@ async def negotiate_node(state: SimulationState) -> dict[str, Any]:
 
 async def audit_node(state: SimulationState) -> dict[str, Any]:
     tick = state["tick"]
+    await _emit_phase(tick, "AUDIT")
     regret, narrative, event = await asyncio.to_thread(
         engine.auditor.audit,
         state["agents"],
@@ -171,6 +183,7 @@ async def audit_node(state: SimulationState) -> dict[str, Any]:
 
 async def conflict_node(state: SimulationState) -> dict[str, Any]:
     tick = state["tick"]
+    await _emit_phase(tick, "CONFLICT")
     canvas, agents, events, resolved = await asyncio.to_thread(
         engine.conflict.resolve,
         state["canvas"],
@@ -195,6 +208,7 @@ async def conflict_node(state: SimulationState) -> dict[str, Any]:
 
 async def reform_node(state: SimulationState) -> dict[str, Any]:
     tick = state["tick"]
+    await _emit_phase(tick, "REFORM")
     agents, events = await asyncio.to_thread(
         engine.reformer.reform,
         state["agents"],
@@ -238,6 +252,7 @@ def _confess_sync(state: SimulationState, tick: int) -> dict[str, Any]:
 
 async def confess_node(state: SimulationState) -> dict[str, Any]:
     tick = state["tick"]
+    await _emit_phase(tick, "CONFESS")
     bundle = await asyncio.to_thread(_confess_sync, state, tick)
     agents = bundle["agents"]
     events = bundle["events"]

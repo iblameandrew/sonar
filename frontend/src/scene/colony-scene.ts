@@ -223,6 +223,14 @@ export class ColonyScene {
           if (id) this.pulseAgent(id);
         }
         break;
+      case "tick_phase":
+        if (this.layers.agents) this.pulseAllAgents();
+        break;
+      case "attention_progress":
+        if (this.layers.attention_agent && typeof p.matched === "number" && p.matched > 0) {
+          this.pulseAllAgents();
+        }
+        break;
       case "negotiation_round":
         if (this.layers.negotiations) this.showDebate(p.proposer_id as string, p.responder_id as string);
         break;
@@ -510,6 +518,13 @@ export class ColonyScene {
   private pulseAgent(id: string): void {
     if (!this.agents.has(id)) return;
     this.agentPulseUntil.set(id, this.clock.getElapsedTime() + 0.55);
+  }
+
+  private pulseAllAgents(): void {
+    const until = this.clock.getElapsedTime() + 0.45;
+    for (const id of this.agents.keys()) {
+      this.agentPulseUntil.set(id, until);
+    }
   }
 
   private flashConflictArena(): void {

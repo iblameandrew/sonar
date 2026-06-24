@@ -512,10 +512,15 @@ export class Dashboard {
     while (this.movementEl.children.length > 30) this.movementEl.lastChild?.remove();
   }
 
-  addNegotiation(neg: NegotiationRound): void {
+  addNegotiation(payload: Record<string, unknown>): void {
+    const nested = payload.negotiation as NegotiationRound | undefined;
+    const outcome = String(nested?.outcome ?? payload.outcome ?? "resolved");
+    const topic = String(
+      nested?.topic ?? payload.topic ?? payload.message ?? "Conflict resolution",
+    );
     const div = document.createElement("div");
     div.className = "log-entry negotiation";
-    div.textContent = `[${neg.outcome}] ${neg.topic}`;
+    div.textContent = `[${outcome}] ${topic}`;
     this.negEl.prepend(div);
     while (this.negEl.children.length > 15) this.negEl.lastChild?.remove();
   }
@@ -529,15 +534,30 @@ export class Dashboard {
     this.streamStatusEl.classList.toggle("status-warn", !connected);
   }
 
-  updateRunProgress(tick: number, maxTicks: number, playbookEdges: number, detail = ""): void {
-    const key = `${tick}:${playbookEdges}:${detail}`;
-    if (key === this.lastProgressKey) return;
+  updateRunProgress(
+    tick: number,
+    maxTicks: number,
+    playbookEdges: number,
+    detail = "",
+    opts?: { force?: boolean },
+  ): void {
+    const key = `${tick}:${maxTicks}:${playbookEdges}:${detail}`;
+    if (!opts?.force && key === this.lastProgressKey) return;
     this.lastProgressKey = key;
     const extra = detail ? ` · ${detail}` : "";
     this.streamStatusEl.textContent =
       `Tick ${tick}/${maxTicks} · ${playbookEdges} playbook edges${extra}`;
     this.streamStatusEl.classList.add("status-live");
+    this.streamStatusEl.classList.toggle("status-warn", detail.includes("reconnect"));
+  }
+
+  markRunComplete(tick: number, maxTicks: number, playbookEdges: number, goal = ""): void {
+    const summary = goal ? ` · ${goal.slice(0, 48)}` : "";
+    this.streamStatusEl.textContent =
+      `Complete · tick ${tick}/${maxTicks} · ${playbookEdges} edges${summary}`;
+    this.streamStatusEl.classList.add("status-live");
     this.streamStatusEl.classList.remove("status-warn");
+    this.lastProgressKey = `done:${tick}`;
   }
 
   private formatEventLine(event: SimEvent): string {
@@ -547,7 +567,10 @@ export class Dashboard {
         return `t${event.tick} · colony deployed · ${p.agent_count ?? "?"} agents · ${String(p.goal ?? "default goal").slice(0, 72)}`;
       case "tick_started":
         return `t${event.tick} · tick started · ${p.agent_count ?? "?"} agents · max ${p.max_ticks ?? "?"}`;
+      case "tick_phase":
+        return `t${event.tick} · phase ${p.phase ?? "?"}`;
       case "attention_progress":
+        if (p.source === "poll") return "";
         return `t${event.tick} · attention ${p.done}/${p.total} pairs scored · ${p.matched} edges`;
       case "heartbeat":
         return `t${event.tick} · still computing…`;
@@ -570,13 +593,22 @@ export class Dashboard {
     }
   }
 
+  private static readonly QUIET_EVENTS = new Set([
+    "attention_judgment",
+    "collaboration_pod",
+    "confessor_flow",
+    "reformer_update",
+    "qwen_usage",
+    "heartbeat",
+  ]);
+
   logEvent(event: SimEvent, opts?: { force?: boolean }): void {
-    if (event.type === "heartbeat" && !opts?.force) {
-      this.updateRunProgress(event.tick, event.tick + 1, 0, "waiting for backend");
+    if (!opts?.force && Dashboard.QUIET_EVENTS.has(event.type)) {
       return;
     }
 
     const line = this.formatEventLine(event);
+    if (!line) return;
     const top = this.logEl.firstElementChild as HTMLElement | null;
     if (
       !opts?.force
@@ -595,7 +627,7 @@ export class Dashboard {
       : event.type.includes("conflict") ? "conflict"
       : event.type.includes("task") ? "task"
       : event.type.includes("metrics") ? "metrics"
-      : event.type === "tick_started" || event.type === "attention_progress" ? "metrics"
+      : event.type === "tick_started" || event.type === "tick_phase" || event.type === "attention_progress" ? "metrics"
       : event.type.includes("birth") || event.type.includes("death") ? "movement"
       : event.type === "sim_error" || event.type === "deploy_failed" ? "conflict"
       : "";

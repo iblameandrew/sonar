@@ -22,6 +22,10 @@ let colonyRefreshTick = 0;
 let deploying = false;
 let pollTimer: number | null = null;
 let pollSnapshot = { tick: -1, playbookLen: 0, running: false };
+let liveTick = 0;
+let liveMaxTicks = 80;
+let livePhase = "boot";
+let livePlaybookLen = 0;
 
 async function api<T = Record<string, unknown>>(path: string, method = "GET", body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -98,43 +102,62 @@ function stopStatePolling(): void {
   pollSnapshot = { tick: -1, playbookLen: 0, running: false };
 }
 
+function syncLiveHud(playbookLen = livePlaybookLen, detail = livePhase): void {
+  const tick = Math.max(liveTick, pollSnapshot.tick);
+  dashboard.updateRunProgress(tick, liveMaxTicks, playbookLen, detail, { force: true });
+  tickLabel.textContent = `Tick ${tick}`;
+}
+
+async function applyStateSnapshot(s: LiveState, opts?: { finalize?: boolean }): Promise<void> {
+  const playbookLen = Array.isArray(s.playbook) ? s.playbook.length : livePlaybookLen;
+  livePlaybookLen = playbookLen;
+  liveMaxTicks = s.max_ticks ?? liveMaxTicks;
+  liveTick = Math.max(liveTick, s.tick ?? 0);
+  pollSnapshot.tick = s.tick ?? pollSnapshot.tick;
+  pollSnapshot.playbookLen = playbookLen;
+
+  scene?.loadAgents(s.agents ?? []);
+  dashboard.updateTasks(s.canvas);
+  dashboard.refreshColony(s.agents);
+  if (s.colony) dashboard.updateColonyFromServer(s.colony);
+  updateStatus({ ...s, tick: liveTick });
+
+  const goal = s.canvas?.goal ?? "";
+  if (opts?.finalize || !s.running) {
+    dashboard.markRunComplete(liveTick, liveMaxTicks, playbookLen, goal);
+    activeGoalEl.textContent = goal
+      ? `Complete · tick ${liveTick}/${liveMaxTicks} · ${goal.slice(0, 64)}`
+      : `Complete · tick ${liveTick}/${liveMaxTicks}`;
+    modeLabel.textContent = "Complete";
+    setDeployButtonsActive(false);
+    return;
+  }
+
+  syncLiveHud(playbookLen, livePhase);
+  if (goal) {
+    activeGoalEl.textContent = `Tick ${liveTick}/${liveMaxTicks} · ${livePhase} · ${goal.slice(0, 56)}`;
+  }
+}
+
+async function finalizeFromServer(): Promise<void> {
+  try {
+    const s = await api<LiveState>("/state");
+    await applyStateSnapshot(s, { finalize: !s.running });
+  } catch {
+    dashboard.markRunComplete(liveTick, liveMaxTicks, livePlaybookLen);
+  }
+}
+
 async function pollSimulationState(): Promise<void> {
   try {
     const s = await api<LiveState>("/state");
     if (!s.running) {
+      await applyStateSnapshot(s, { finalize: true });
       stopStatePolling();
-      setDeployButtonsActive(false);
       return;
     }
 
-    const playbookLen = Array.isArray(s.playbook) ? s.playbook.length : 0;
-    const maxTicks = s.max_ticks ?? 80;
-    dashboard.updateRunProgress(s.tick ?? 0, maxTicks, playbookLen, "polling backend");
-
-    if (s.tick !== pollSnapshot.tick) {
-      pollSnapshot.tick = s.tick ?? 0;
-      pollSnapshot.playbookLen = playbookLen;
-    } else if (playbookLen > pollSnapshot.playbookLen) {
-      dashboard.logEvent(
-        {
-          type: "attention_progress",
-          tick: s.tick ?? 0,
-          payload: { done: playbookLen, total: "?", matched: playbookLen, source: "poll" },
-        },
-        { force: true },
-      );
-      pollSnapshot.playbookLen = playbookLen;
-    }
-
-    scene?.loadAgents(s.agents ?? []);
-    dashboard.updateTasks(s.canvas);
-    dashboard.refreshColony(s.agents);
-    if (s.colony) dashboard.updateColonyFromServer(s.colony);
-    updateStatus(s);
-    const goal = s.canvas?.goal;
-    if (goal) {
-      activeGoalEl.textContent = `Tick ${s.tick ?? 0}/${maxTicks} · ${playbookLen} edges · ${goal.slice(0, 64)}`;
-    }
+    await applyStateSnapshot(s);
   } catch {
     dashboard.updateStreamStatus(sse.isConnected(), "state poll failed");
   }
@@ -152,7 +175,7 @@ function applyLiveEvent(event: SimEvent): void {
   dashboard.logEvent(event);
 
   if (event.type === "negotiation_round" || event.type === "conflict_resolved") {
-    dashboard.addNegotiation(event.payload as never);
+    dashboard.addNegotiation(event.payload as Record<string, unknown>);
   }
   if (event.type === "society_metrics" || event.type === "comparison_metrics") {
     dashboard.updateMetrics(event.payload as unknown as ComparisonMetrics);
@@ -168,32 +191,45 @@ function applyLiveEvent(event: SimEvent): void {
     );
   }
   if (event.type === "simulation_started") {
+    liveTick = 0;
+    livePhase = "starting";
+    livePlaybookLen = 0;
+    liveMaxTicks = Number(event.payload.max_ticks ?? 80);
     modeLabel.textContent = "Society";
     setDeployButtonsActive(false);
     dashboard.switchTab("activity");
     startStatePolling();
+    syncLiveHud(0, "deployed");
   }
   if (event.type === "tick_started") {
-    const max = Number(event.payload.max_ticks ?? 80);
-    activeGoalEl.textContent = `Tick ${event.tick}/${max} — agents computing…`;
-    dashboard.updateRunProgress(event.tick, max, 0, "tick in progress");
+    liveTick = event.tick;
+    liveMaxTicks = Number(event.payload.max_ticks ?? liveMaxTicks);
+    livePlaybookLen = Number(event.payload.playbook_edges ?? livePlaybookLen);
+    livePhase = "tick started";
+    syncLiveHud(livePlaybookLen, livePhase);
   }
-  if (event.type === "attention_progress") {
-    const max = Number(event.payload.max_ticks ?? pollSnapshot.tick + 1);
-    dashboard.updateRunProgress(
-      event.tick,
-      max,
-      Number(event.payload.matched ?? 0),
-      `${event.payload.done}/${event.payload.total} pairs`,
-    );
+  if (event.type === "tick_phase") {
+    liveTick = Math.max(liveTick, event.tick);
+    livePhase = String(event.payload.phase ?? livePhase);
+    syncLiveHud(livePlaybookLen, livePhase);
   }
-  if (event.tick !== undefined) tickLabel.textContent = `Tick ${event.tick}`;
+  if (event.type === "attention_progress" && event.payload.source !== "poll") {
+    liveTick = Math.max(liveTick, event.tick);
+    livePlaybookLen = Number(event.payload.matched ?? livePlaybookLen);
+    livePhase = `ATTEND ${event.payload.done}/${event.payload.total}`;
+    syncLiveHud(livePlaybookLen, livePhase);
+  }
+  if (event.tick !== undefined) {
+    liveTick = Math.max(liveTick, event.tick);
+    tickLabel.textContent = `Tick ${liveTick}`;
+  }
   if (event.type === "phase_change") phaseLabel.textContent = String(event.payload.design_phase ?? "?");
   if (event.type === "auditor_regret") regretLabel.textContent = `Regret ${(event.payload.regret as number).toFixed(2)}`;
   if (event.type === "sim_complete") {
-    modeLabel.textContent = String(event.payload.mode);
-    setDeployButtonsActive(false);
+    liveTick = Math.max(liveTick, event.tick);
+    livePhase = "complete";
     stopStatePolling();
+    void finalizeFromServer();
     api<{ comparison?: ComparisonMetrics }>("/metrics").then((m) => {
       if (m.comparison) dashboard.updateMetrics(m.comparison);
     });
@@ -265,7 +301,9 @@ async function deployColony() {
     modeLabel.textContent = s.running ? "Society" : String(s.execution_mode ?? "Society");
     if (goal) setActiveGoal(goal);
     if (s.running) {
-      dashboard.updateRunProgress(s.tick ?? 0, s.max_ticks ?? 80, Array.isArray(s.playbook) ? s.playbook.length : 0);
+      liveMaxTicks = s.max_ticks ?? liveMaxTicks;
+      liveTick = s.tick ?? liveTick;
+      syncLiveHud(Array.isArray(s.playbook) ? s.playbook.length : 0, livePhase);
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

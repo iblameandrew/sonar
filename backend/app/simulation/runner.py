@@ -239,6 +239,7 @@ class SimulationRunner:
                 payload={
                     "max_ticks": state["max_ticks"],
                     "agent_count": len(state["agents"]),
+                    "playbook_edges": len(state["playbook"].entries),
                 },
             )
         )
