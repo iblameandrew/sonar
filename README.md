@@ -204,20 +204,21 @@ flowchart TB
     CANVAS --> LOSS
     PLAY --> RES
 
-    subgraph pop["Population dynamics (between ticks)"]
+    subgraph pop["Population dynamics (CONFESS node — end of tick)"]
         INST["Institution condenser<br/>low-rank governance"]
         LIFE["Lifecycle<br/>birth · survival · death"]
         SEA["Season scheduler<br/>attention temperature"]
         RAP["RAPTOR memory<br/>playbook summarization"]
     end
 
-    PLAY --> INST --> LIFE
+    RES --> INST
+    INST --> LIFE
     SEA -.-> SA
     PLAY --> RAP
     LIFE -.-> GA
 ```
 
-> **Operational layer:** The [Learning loop](#learning-loop) section below shows the exact LangGraph node order and module names.
+> **Operational layer:** The [Learning loop](#learning-loop) section below shows the exact LangGraph node order, module names, and when regret vs backward pass fire.
 
 ---
 
@@ -300,6 +301,53 @@ flowchart TB
 | **Low-Rank Agent** | Low-rank condensation | Condensed governance rules from repeated playbook patterns |
 | **Seasons** | Temporal modulation | Sharp vs diffuse judgment across macro/micro cycles |
 | **Hierarchical Memory Agent** | Hierarchical memory | Long-horizon synthesis of playbook history |
+
+### Regret, backward pass, and institutions
+
+**Tick number ≠ loss timing.** The HUD tick advances at `tick_started` — the *opening* of each LangGraph pass. **Regret (loss) is computed later in the same tick**, during **AUDIT**, after PERFORM, DECOMPOSE, and ATTEND complete. If you are on tick 5 but ATTEND is still scoring pairs (the slowest phase when Qwen is enabled), the regret label will not move until AUDIT finishes for that tick.
+
+| Phase | Position in tick | Transformer role | What updates |
+|-------|------------------|------------------|--------------|
+| **ATTEND** | Early (often longest) | Self-attention | Playbook edges; `attention_progress` in Activity |
+| **AUDIT** | Mid-tick | Loss | `auditor_regret` event; regret label and quality score |
+| **CONFLICT** | Optional | High-loss gate | Only if regret ≥ 0.55 or conflict injected |
+| **REFORM** | After audit / conflict | Gradient step | Agent adjectives and verbs adjusted toward *ought* |
+| **CONFESS** | End of tick | Backward pass | Custodian weight write-back, institutions, lifecycle, RAPTOR; then `tick++` |
+
+**Loss vs backward pass — don't conflate them:**
+
+- **AUDIT (`Auditor` / `loss_agent`)** — forward-half *evaluation*. Measures collective regret against the *ought* snapshot and broadcasts the signal. This is when the top-bar **Regret** value changes.
+- **CONFESS (`Confessor` / `residual_flow_agent` + `Custodian`)** — backward-half *write-back*. Propagates feedback along that tick's dependency edges and EMA-blends persistent weights in `custodian.json`. Runs **after** REFORM, still within the same tick, before the counter increments.
+
+In the Activity log, look for this sequence each tick:
+
+```
+tN · tick started
+tN · phase ATTEND
+tN · phase AUDIT          ← regret appears here
+tN · regret 0.62
+tN · phase REFORM
+tN · phase CONFESS        ← backward pass + institutions
+```
+
+**Why regret might look stuck at 0.00 or unchanged:**
+
+- The current tick is still in **ATTEND** — no AUDIT yet for that tick (earlier ticks may already have regret values in the log).
+- **No API key** — audit uses a heuristic (`1 − quality` from task completion + adjective overlap); values can plateau until subtasks move.
+- **Regret 0.00** is a valid low-loss reading, not a missing signal.
+
+**Institution formation** (`InstitutionCondenser` in CONFESS) — condensed governance from repeated strong playbook patterns:
+
+| Criterion | Threshold | Notes |
+|-----------|-----------|-------|
+| Strong edges in playbook | **≥ 15** cumulative | Only `med` and `high` strength count; `low` / `none` are ignored |
+| Cluster size | **≥ 3** entries per cluster | KMeans on strong-entry vectors; clusters smaller than 3 are skipped |
+| Novelty | Unique member set | Won't duplicate an institution for the same agent IDs |
+| Phase | **CONFESS** only | Same end-of-tick pass as backward flow and lifecycle |
+
+With the **minimum colony size (6 agents)** — six specialists, zero workers — you get roughly **30 attention pairs per tick** (specialist×all). Institutions typically appear around **tick 3–8**, depending on season temperature (`sharp` filters weak edges) and how many bonds reach `med`/`high`. They are unlikely on tick 1. In a **`diffuse` macro season**, an institution can **dissolve** if strong edges involving its members drop below 3.
+
+> **Agent count floor:** The UI and backend enforce `agent_count ≥ 6` (`create_colony_agents` clamps to 6–512). Below that, the colony still runs six specialists.
 
 ### Specialist cast
 
