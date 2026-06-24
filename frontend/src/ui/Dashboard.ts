@@ -6,6 +6,7 @@ import {
   setRememberEnabled,
 } from "../storage/apiKeyStorage";
 import type { Agent, ColonyInfo, ComparisonMetrics, NegotiationRound, ProjectCanvas, SimEvent } from "../types";
+import { DASHBOARD_ROLES, roleLabel } from "../agentRoles";
 import type { ColonyScene } from "../scene/ColonyScene";
 
 export interface QwenModelEntry {
@@ -31,12 +32,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   legacy: "Legacy",
 };
 
-const ROLES = [
-  "auditor", "attention", "reformer", "confessor", "messenger",
-  "decomposer", "negotiator", "conflict_resolver", "baseline",
-  "voxel_architect", "orchestrator", "integrator",
-];
-
 export interface QwenStatus {
   provider: string;
   configured: boolean;
@@ -44,6 +39,7 @@ export interface QwenStatus {
   status_message: string;
   default_model: string;
   available_models?: QwenModelEntry[];
+  role_labels?: Record<string, string>;
   roles: Record<string, { model: string; temperature: number }>;
   usage: {
     total_calls: number;
@@ -166,7 +162,7 @@ export class Dashboard {
     container.innerHTML = keys
       .map(
         (k) =>
-          `<label><input type="checkbox" data-layer="${k}" ${this.scene!.layers[k] ? "checked" : ""}/> ${k}</label>`
+          `<label><input type="checkbox" data-layer="${k}" ${this.scene!.layers[k] ? "checked" : ""}/> ${roleLabel(k)}</label>`
       )
       .join("");
     container.querySelectorAll("input").forEach((inp) => {
@@ -208,10 +204,12 @@ export class Dashboard {
     `;
 
     if (!this.qwenModelsEl.dataset.built) {
-      this.qwenModelsEl.innerHTML = ROLES.map((role) => {
+      const labels = status.role_labels ?? {};
+      this.qwenModelsEl.innerHTML = DASHBOARD_ROLES.map((role) => {
         const cfg = status.roles[role];
         const opts = this.buildModelOptions(status, cfg?.model);
-        return `<div class="model-row"><label>${role}</label><select data-role="${role}">${opts}</select></div>`;
+        const label = labels[role] ?? roleLabel(role);
+        return `<div class="model-row"><label>${label}</label><select data-role="${role}">${opts}</select></div>`;
       }).join("");
       this.qwenModelsEl.dataset.built = "1";
       this.qwenModelsEl.querySelectorAll("select").forEach((sel) => {
@@ -304,7 +302,7 @@ export class Dashboard {
       .slice(0, 80)
       .map(
         (a) =>
-          `<div class="registry-row"><span class="registry-name">${a.name}</span><span class="registry-pos">(${a.grid_x},${a.grid_y})</span><span class="registry-role">${a.role}</span></div>`
+          `<div class="registry-row"><span class="registry-name">${a.name}</span><span class="registry-pos">(${a.grid_x},${a.grid_y})</span><span class="registry-role">${roleLabel(a.role)}</span></div>`
       )
       .join("") || "<p class='hint'>No agents loaded.</p>";
     if (list.length > 80) {

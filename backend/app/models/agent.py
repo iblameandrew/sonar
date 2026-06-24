@@ -25,8 +25,8 @@ SpecialistRole = Literal[
     "ux_weaver",
     "critic_evaluator",
     "worker",
-    "auditor",
-    "attention",
+    "loss_agent",
+    "attention_agent",
     "generalist",
 ]
 

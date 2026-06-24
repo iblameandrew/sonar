@@ -3,6 +3,7 @@ from __future__ import annotations
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 
+from app.roles import GRADIENT_DESCENT_AGENT
 from app.llm.qwen_factory import qwen_factory
 from app.models.agent import QualitativeAgent
 from app.models.events import SimEvent
@@ -43,7 +44,7 @@ class Reformer:
     ) -> tuple[list[QualitativeAgent], list[SimEvent]]:
         events: list[SimEvent] = []
         batch = qwen_factory.invoke_structured(
-            "reformer",
+            GRADIENT_DESCENT_AGENT,
             ReformerBatch,
             REFORM_PROMPT,
             {

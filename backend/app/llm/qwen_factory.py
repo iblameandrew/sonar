@@ -11,6 +11,29 @@ from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
+from app.roles import (
+    ATTENTION_AGENT,
+    BASELINE_AGENT,
+    CODING_ROLES,
+    CRITIC_EVALUATOR,
+    FEED_FORWARD_AGENT,
+    GRADIENT_DESCENT_AGENT,
+    HIERARCHICAL_MEMORY_AGENT,
+    INPUT_PROJECTION_AGENT,
+    INTEGRATOR,
+    INTERVENTION_AGENT,
+    LOSS_AGENT,
+    LOW_RANK_AGENT,
+    MULTI_HEAD_AGENT,
+    OPTIMIZER,
+    ORCHESTRATOR,
+    REASONING_ROLES,
+    RESIDUAL_FLOW_AGENT,
+    ROLE_LABELS,
+    UX_WEAVER,
+    VOXEL_ARCHITECT,
+    WEIGHT_AGENT,
+)
 from app.llm.models import (
     DEFAULT_MODEL as CATALOG_DEFAULT,
     QWEN3_6_PLUS,
@@ -24,9 +47,6 @@ T = TypeVar("T", bound=BaseModel)
 
 DASHSCOPE_BASE = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 DEFAULT_MODEL = os.getenv("QWEN_MODEL", CATALOG_DEFAULT)
-
-CODING_ROLES = {"voxel_architect", "integrator", "orchestrator"}
-REASONING_ROLES = {"auditor", "attention", "critic_evaluator", "conflict_resolver"}
 
 
 @dataclass
@@ -80,71 +100,71 @@ class QwenLLMFactory:
 
     def _default_configs(self) -> dict[str, RoleConfig]:
         return {
-            "auditor": RoleConfig(
+            LOSS_AGENT: RoleConfig(
                 model=QWEN3_7_MAX, temperature=0.3, max_tokens=1024,
-                system_prompt="You are THE AUDITOR — measure regret and engineering quality.",
+                system_prompt="You are the Loss Agent — cost function / regret measurement.",
             ),
-            "attention": RoleConfig(
+            ATTENTION_AGENT: RoleConfig(
                 model=QWEN3_7_MAX, temperature=0.7, max_tokens=512,
-                system_prompt="You are THE ATTENTION AGENT — qualitative social physics.",
+                system_prompt="You are the Attention Agent — core attention / relational relevance.",
             ),
-            "reformer": RoleConfig(
+            GRADIENT_DESCENT_AGENT: RoleConfig(
                 model=QWEN3_7_MAX, temperature=0.5, max_tokens=1024,
-                system_prompt="You are THE REFORMER — gradient descent as social change.",
+                system_prompt="You are the Gradient Descent Agent — parameter update after misalignment.",
             ),
-            "confessor": RoleConfig(
+            RESIDUAL_FLOW_AGENT: RoleConfig(
                 model=QWEN3_6_PLUS, temperature=0.4, max_tokens=512,
-                system_prompt="You are THE CONFESSOR — propagate lessons backward.",
+                system_prompt="You are the Residual Flow Agent — backward propagation of lessons.",
             ),
-            "messenger": RoleConfig(
+            FEED_FORWARD_AGENT: RoleConfig(
                 model=QWEN3_7_PLUS, temperature=0.6, max_tokens=1024,
-                system_prompt="You are THE MESSENGER — carry proposals and code artifacts.",
+                system_prompt="You are the Feed-Forward Agent — activation and artifact distribution.",
             ),
-            "custodian": RoleConfig(
+            WEIGHT_AGENT: RoleConfig(
                 model=QWEN3_6_PLUS, temperature=0.2, max_tokens=512,
-                system_prompt="You are THE CUSTODIAN — maintain persistent social memory.",
+                system_prompt="You are the Weight Agent — persistent learned parameters and memory.",
             ),
-            "decomposer": RoleConfig(
+            INPUT_PROJECTION_AGENT: RoleConfig(
                 model=QWEN3_7_PLUS, temperature=0.5, max_tokens=1024,
-                system_prompt="You decompose Sociomorphic Computing goals into subtasks.",
+                system_prompt="You are the Input Projection Agent — task routing and decomposition.",
             ),
-            "negotiator": RoleConfig(
+            MULTI_HEAD_AGENT: RoleConfig(
                 model=QWEN3_7_MAX, temperature=0.7, max_tokens=1024,
-                system_prompt="You mediate structured negotiation between specialist agents.",
+                system_prompt="You are the Multi-Head Agent — multi-head contention negotiation.",
             ),
-            "conflict_resolver": RoleConfig(
+            INTERVENTION_AGENT: RoleConfig(
                 model=QWEN3_7_MAX, temperature=0.4, max_tokens=1024,
-                system_prompt="You resolve architecture conflicts via compromise or voting.",
+                system_prompt="You are the Intervention Agent — high-loss conflict resolution.",
             ),
-            "voxel_architect": RoleConfig(
+            VOXEL_ARCHITECT: RoleConfig(
                 model=QWEN_CODER, temperature=0.5, max_tokens=2048,
-                system_prompt="You are the Voxel Architect — Three.js pixel-art visualization expert.",
+                system_prompt="You are the Voxel Architect Agent — Three.js pixel-art visualization.",
             ),
-            "orchestrator": RoleConfig(
+            ORCHESTRATOR: RoleConfig(
                 model=QWEN_CODER, temperature=0.5, max_tokens=2048,
-                system_prompt="You are the Orchestrator — LangGraph and SSE expert.",
+                system_prompt="You are the Orchestrator Agent — LangGraph and SSE pipelines.",
             ),
-            "optimizer": RoleConfig(
+            OPTIMIZER: RoleConfig(
                 model=QWEN3_7_MAX, temperature=0.3, max_tokens=1024,
-                system_prompt="You are the Optimizer — benchmarking and efficiency expert.",
+                system_prompt="You are the Optimizer Agent — benchmarking and efficiency.",
             ),
-            "integrator": RoleConfig(
+            INTEGRATOR: RoleConfig(
                 model=QWEN_CODER, temperature=0.5, max_tokens=2048,
-                system_prompt="You are the Integrator — FastAPI + frontend glue expert.",
+                system_prompt="You are the Integrator Agent — FastAPI + frontend integration.",
             ),
-            "ux_weaver": RoleConfig(
+            UX_WEAVER: RoleConfig(
                 model=QWEN3_6_PLUS, temperature=0.6, max_tokens=1024,
-                system_prompt="You are the UX Weaver — dashboard and judge-friendly UI expert.",
+                system_prompt="You are the UX Weaver Agent — dashboard and judge-friendly UI.",
             ),
-            "critic_evaluator": RoleConfig(
+            CRITIC_EVALUATOR: RoleConfig(
                 model=QWEN3_7_MAX, temperature=0.2, max_tokens=1024,
-                system_prompt="You are the Critic — evaluate society vs baseline metrics.",
+                system_prompt="You are the Critic Evaluator Agent — society vs baseline metrics.",
             ),
-            "institution": RoleConfig(model=QWEN3_6_PLUS, temperature=0.6, max_tokens=512),
-            "raptor": RoleConfig(model=QWEN3_6_PLUS, temperature=0.5, max_tokens=1024),
-            "baseline": RoleConfig(
+            LOW_RANK_AGENT: RoleConfig(model=QWEN3_6_PLUS, temperature=0.6, max_tokens=512),
+            HIERARCHICAL_MEMORY_AGENT: RoleConfig(model=QWEN3_6_PLUS, temperature=0.5, max_tokens=1024),
+            BASELINE_AGENT: RoleConfig(
                 model=QWEN3_7_MAX, temperature=0.7, max_tokens=2048,
-                system_prompt="You are a single powerful agent building Sociomorphic Computing alone.",
+                system_prompt="You are the Baseline Agent — single-agent comparison mode.",
             ),
             "default": RoleConfig(model=DEFAULT_MODEL, temperature=0.7, max_tokens=2048),
         }
@@ -338,6 +358,7 @@ class QwenLLMFactory:
             ),
             "default_model": DEFAULT_MODEL,
             "available_models": catalog_for_api(),
+            "role_labels": ROLE_LABELS,
             "roles": {
                 role: {"model": cfg.model, "temperature": cfg.temperature}
                 for role, cfg in self._configs.items()

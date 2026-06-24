@@ -119,7 +119,7 @@ class RaptorMemory:
             for e in entries[:20]
         ]
         result = qwen_factory.invoke_structured(
-            "raptor",
+            "hierarchical_memory_agent",
             SeasonSummary,
             RAPTOR_PROMPT,
             {

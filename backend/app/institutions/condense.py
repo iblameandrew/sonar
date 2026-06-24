@@ -147,7 +147,7 @@ class InstitutionCondenser:
     ) -> tuple[str, dict[str, str]]:
         rationales = [e.rationale for e in entries[:5]]
         result = qwen_factory.invoke_structured(
-            "institution",
+            "low_rank_agent",
             InstitutionProposal,
             INST_PROMPT,
             {"kind": kind, "members": members, "rationales": rationales},

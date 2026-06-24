@@ -1,5 +1,6 @@
 import { ColonyScene } from "./scene/ColonyScene";
 import { SSEClient } from "./sse/client";
+import { roleLabel } from "./agentRoles";
 import { Dashboard, type QwenStatus } from "./ui/Dashboard";
 import type { Agent, ColonyInfo, ComparisonMetrics, ProjectCanvas, SimEvent } from "./types";
 
@@ -131,7 +132,7 @@ async function init() {
     inspectPanel.classList.remove("hidden");
     api(`/agents/${agent.id}`).then((deps) => {
       inspectPanel.innerHTML = `
-        <strong>${agent.name}</strong> · ${agent.role}<br/>
+        <strong>${agent.name}</strong> · ${roleLabel(agent.role)}<br/>
         Zone ${Math.floor(agent.grid_x / 12)}-${Math.floor(agent.grid_y / 12)}<br/>
         ${agent.verbs.join(" · ")}<br/>
         <em>${agent.adjectives.join(", ")}</em><br/>

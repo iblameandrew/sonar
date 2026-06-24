@@ -3,6 +3,7 @@ from __future__ import annotations
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 
+from app.roles import LOSS_AGENT
 from app.llm.qwen_factory import qwen_factory
 from app.models.agent import QualitativeAgent
 from app.models.canvas import ProjectCanvas
@@ -45,7 +46,7 @@ class Auditor:
         total_tasks = max(len(canvas.subtasks), 1)
 
         result = qwen_factory.invoke_structured(
-            "auditor",
+            LOSS_AGENT,
             AuditResult,
             AUDIT_PROMPT,
             {

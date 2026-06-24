@@ -16,12 +16,12 @@ SOCIETY_REQUIREMENTS = [
 ]
 
 SPECIALISTS: list[dict] = [
-    {"name": "Voxel Architect", "role": "voxel_architect", "verbs": ["render", "animate"], "nouns": ["voxels"], "adjectives": ["visual"]},
-    {"name": "Orchestrator", "role": "orchestrator", "verbs": ["orchestrate", "stream"], "nouns": ["langgraph"], "adjectives": ["coordinated"]},
-    {"name": "Optimizer", "role": "optimizer", "verbs": ["benchmark", "tune"], "nouns": ["metrics"], "adjectives": ["efficient"]},
-    {"name": "Integrator", "role": "integrator", "verbs": ["wire", "deploy"], "nouns": ["fastapi"], "adjectives": ["connected"]},
-    {"name": "UX Weaver", "role": "ux_weaver", "verbs": ["layout", "dashboard"], "nouns": ["panels"], "adjectives": ["clear"]},
-    {"name": "Critic", "role": "critic_evaluator", "verbs": ["evaluate", "score"], "nouns": ["baseline"], "adjectives": ["rigorous"]},
+    {"name": "Voxel Architect Agent", "role": "voxel_architect", "verbs": ["render", "animate"], "nouns": ["voxels"], "adjectives": ["visual"]},
+    {"name": "Orchestrator Agent", "role": "orchestrator", "verbs": ["orchestrate", "stream"], "nouns": ["langgraph"], "adjectives": ["coordinated"]},
+    {"name": "Optimizer Agent", "role": "optimizer", "verbs": ["benchmark", "tune"], "nouns": ["metrics"], "adjectives": ["efficient"]},
+    {"name": "Integrator Agent", "role": "integrator", "verbs": ["wire", "deploy"], "nouns": ["fastapi"], "adjectives": ["connected"]},
+    {"name": "UX Weaver Agent", "role": "ux_weaver", "verbs": ["layout", "dashboard"], "nouns": ["panels"], "adjectives": ["clear"]},
+    {"name": "Critic Evaluator Agent", "role": "critic_evaluator", "verbs": ["evaluate", "score"], "nouns": ["baseline"], "adjectives": ["rigorous"]},
 ]
 
 WORKER_VERBS = ["forage", "carry", "signal", "patrol", "gather", "relay"]

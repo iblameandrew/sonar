@@ -94,11 +94,11 @@ export interface LayerVisibility {
   conflictArena: boolean;
   metrics: boolean;
   birthDeath: boolean;
-  attention: boolean;
-  auditor: boolean;
-  reformer: boolean;
-  confessor: boolean;
-  messenger: boolean;
+  attention_agent: boolean;
+  loss_agent: boolean;
+  gradient_descent_agent: boolean;
+  residual_flow_agent: boolean;
+  feed_forward_agent: boolean;
 }
 
 export const KIND_COLORS: Record<string, number> = {

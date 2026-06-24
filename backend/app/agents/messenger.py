@@ -4,6 +4,7 @@ import uuid
 
 from langchain_core.prompts import ChatPromptTemplate
 
+from app.roles import FEED_FORWARD_AGENT
 from app.llm.qwen_factory import qwen_factory
 from app.models.agent import QualitativeAgent
 from app.models.canvas import Artifact, ProjectCanvas
@@ -53,7 +54,7 @@ class Messenger:
                 if task and task.status in ("assigned", "in_progress"):
                     task.status = "in_progress"
                     content = qwen_factory.invoke_text(
-                        agent.role if agent.role in ROLE_ARTIFACT_KIND else "messenger",
+                        agent.role if agent.role in ROLE_ARTIFACT_KIND else FEED_FORWARD_AGENT,
                         PROPOSE_PROMPT,
                         {
                             "name": agent.name, "role": agent.role,

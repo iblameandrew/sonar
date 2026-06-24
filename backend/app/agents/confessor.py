@@ -3,6 +3,7 @@ from __future__ import annotations
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
+from app.roles import RESIDUAL_FLOW_AGENT
 from app.llm.qwen_factory import qwen_factory
 from app.models.agent import DependencyEntry, QualitativeAgent, SocialPlaybook
 from app.models.events import SimEvent
@@ -41,7 +42,7 @@ class Confessor:
 
         if tick_entries:
             lesson_result = qwen_factory.invoke_structured(
-                "confessor",
+                RESIDUAL_FLOW_AGENT,
                 LessonLearned,
                 CONFESS_PROMPT,
                 {

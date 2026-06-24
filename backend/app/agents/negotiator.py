@@ -5,6 +5,7 @@ import uuid
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
+from app.roles import MULTI_HEAD_AGENT
 from app.llm.qwen_factory import qwen_factory
 from app.models.agent import DependencyEntry, QualitativeAgent
 from app.models.canvas import NegotiationRound, ProjectCanvas
@@ -51,7 +52,7 @@ class Negotiator:
             topic = task_a.title if task_a else "Sociomorphic Computing integration approach"
 
             result = qwen_factory.invoke_structured(
-                "negotiator",
+                MULTI_HEAD_AGENT,
                 NegotiationResult,
                 NEGOTIATE_PROMPT,
                 {

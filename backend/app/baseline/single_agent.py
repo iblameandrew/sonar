@@ -49,7 +49,7 @@ class SingleAgentBaseline:
             task.assigned_to = "solo-agent"
 
             result = qwen_factory.invoke_structured(
-                "baseline",
+                "baseline_agent",
                 BaselineOutput,
                 BASELINE_PROMPT,
                 {"task_title": task.title, "task_desc": task.description},
@@ -79,7 +79,7 @@ class SingleAgentBaseline:
         metrics.features_complete = modules_done / total
         metrics.quality_score = min(0.72, 0.4 + metrics.features_complete * 0.35)
         usage = qwen_factory.get_usage_summary()
-        metrics.tokens_estimate = usage.get("by_role", {}).get("baseline", {}).get("tokens", 2800 + tick * 400)
+        metrics.tokens_estimate = usage.get("by_role", {}).get("baseline_agent", {}).get("tokens", 2800 + tick * 400)
         metrics.transparency_events = len(events)
         metrics.negotiations = 0
         metrics.time_ms = int((time.time() - start) * 1000)

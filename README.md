@@ -44,30 +44,30 @@ This is not metaphor layered on top of engineering. It is the **design grammar**
 
 | Neural / Transformer Component | Agent Role | Conceptual Archetype | Rationale |
 |-------------------------------|------------|----------------------|-----------|
-| Cost function / loss | **The Auditor** | Principle of Discernment and Purification | Measures the gap between current reality and the ideal state. Generates regret as a sacred signal for refinement and service to higher order. |
-| Backward connections / residual flow | **The Confessor** | Principle of Compassionate Return and Memory | Carries consequences and lessons backward to their origins with protective care. Preserves emotional and contextual continuity across the system. |
-| Gradient descent / parameter update | **The Reformer** | Principle of Transformative Judgment | Enacts intense, directed change through crisis and purification. Forces death of inefficient patterns and rebirth in the direction of reduced regret. |
-| Feed-forward activation | **The Messenger** | Principle of Swift Communication and Bridging | Rapidly distributes information and activation between agents. Acts as the dynamic carrier that connects disparate parts of the collective. |
-| Learned weights / persistent parameters | **The Custodian** | Principle of Stable Memory and Accumulation | Holds slow-changing, persistent knowledge and dependency strength. Embodies accumulated wisdom and material continuity across iterations. |
-| Core attention mechanism | **The Attention Agent** | Principle of Focused Relational Awareness | Determines qualitative relevance and importance between agents. Selects and elevates meaningful connections with creative intentionality. |
+| Cost function / loss | **Loss Agent** | Principle of Discernment and Purification | Measures the gap between current reality and the ideal state. Generates regret as a sacred signal for refinement and service to higher order. |
+| Backward connections / residual flow | **Residual Flow Agent** | Principle of Compassionate Return and Memory | Carries consequences and lessons backward to their origins with protective care. Preserves emotional and contextual continuity across the system. |
+| Gradient descent / parameter update | **Gradient Descent Agent** | Principle of Transformative Judgment | Enacts intense, directed change through crisis and purification. Forces death of inefficient patterns and rebirth in the direction of reduced regret. |
+| Feed-forward activation | **Feed-Forward Agent** | Principle of Swift Communication and Bridging | Rapidly distributes information and activation between agents. Acts as the dynamic carrier that connects disparate parts of the collective. |
+| Learned weights / persistent parameters | **Weight Agent** | Principle of Stable Memory and Accumulation | Holds slow-changing, persistent knowledge and dependency strength. Embodies accumulated wisdom and material continuity across iterations. |
+| Core attention mechanism | **Attention Agent** | Principle of Focused Relational Awareness | Determines qualitative relevance and importance between agents. Selects and elevates meaningful connections with creative intentionality. |
 | Attention matrix / dependency graph | **Social Playbook** | Principle of Relational Harmony and Mapping | Maintains the living record of all qualitative distances, strengths, and rationales. Serves as the transparent, editable map of collective interdependencies. |
-| Low-rank condensation / clustering | **Emergent Institutions** | Principle of Crystallization and Governance | Condenses repeated patterns into stable, higher-level structures that issue policies and exert influence over members. |
+| Low-rank condensation / clustering | **Low-Rank Agent** | Principle of Crystallization and Governance | Condenses repeated patterns into stable, higher-level structures that issue policies and exert influence over members. |
 | Agent creation rule | **Birth mechanism** | Principle of Initiation and Emergence | Brings new agents into existence when sufficient supportive dependencies accumulate. |
 | Persistence rule | **Survival mechanism** | Principle of Sustained Coherence | Determines which agents endure based on sufficient meaningful connections. |
 | Dissolution rule | **Death mechanism** | Principle of Release and Recycling | Returns isolated or overloaded agents to the collective pool, freeing resources for renewal. |
 | Temporal modulation | **Seasonal variance** | Principle of Cyclic Adaptation | Introduces varying conditions of sharpness versus diffusion, allowing periods of crystallization and periods of exploration. |
-| Higher-order memory consolidation | **RAPTOR-style tree** | Principle of Transcendent Synthesis | Builds hierarchical, long-term memory structures that summarize and preserve wisdom across cycles. |
+| Higher-order memory consolidation | **Hierarchical Memory Agent** | Principle of Transcendent Synthesis | Builds hierarchical, long-term memory structures that summarize and preserve wisdom across cycles. |
 
 ### The mandala of computation
 
 The Attention Agent Society is a complete gamification of the transformer architecture into qualitative social physics. Each core neural operation is embodied as a conscious agent guided by a distinct philosophical principle:
 
-- **The Auditor** enforces discernment and purification.
-- **The Confessor** enables compassionate return and memory.
-- **The Reformer** drives transformative judgment.
-- **The Messenger** bridges and communicates.
-- **The Custodian** stabilizes accumulated wisdom.
-- **The Attention Agent** focuses relational awareness.
+- **Loss Agent** enforces discernment and purification.
+- **Residual Flow Agent** enables compassionate return and memory.
+- **Gradient Descent Agent** drives transformative judgment.
+- **Feed-Forward Agent** bridges and communicates.
+- **Weight Agent** stabilizes accumulated wisdom.
+- **Attention Agent** focuses relational awareness.
 
 Together they form a self-organizing collective capable of emergent intelligence. Institutions crystallize governance. Birth, survival, and death rules mirror natural cycles of creation and release. Seasonal variance introduces temporal rhythm, alternating focused refinement with open exploration.
 
@@ -76,29 +76,29 @@ The result is not only a functional multi-agent system but a coherent conceptual
 ```mermaid
 flowchart TB
     subgraph forward["Forward Pass — Action & Relation"]
-        M[Messenger<br/>Communication]
+        M[Feed-Forward Agent<br/>Communication]
         A[Attention Agent<br/>Relational Awareness]
         SP[Social Playbook<br/>Dependency Mapping]
         M --> A --> SP
     end
 
     subgraph judgment["Judgment Cycle"]
-        AU[Auditor<br/>Discernment]
-        AU -->|regret signal| RF[Reformer<br/>Transformative Judgment]
-        AU -->|lessons returned| CF[Confessor<br/>Compassionate Memory]
+        AU[Loss Agent<br/>Discernment]
+        AU -->|regret signal| RF[Gradient Descent Agent<br/>Transformative Judgment]
+        AU -->|lessons returned| CF[Residual Flow Agent<br/>Compassionate Memory]
     end
 
     subgraph emergence["Emergence & Rhythm"]
-        INST[Institutions<br/>Crystallization]
+        INST[Low-Rank Agent<br/>Crystallization]
         LIFE[Birth · Survival · Death]
         SEA[Seasonal Variance]
-        RAP[RAPTOR Tree<br/>Transcendent Synthesis]
+        RAP[Hierarchical Memory Agent<br/>Transcendent Synthesis]
     end
 
     forward --> judgment
     judgment --> emergence
     emergence --> forward
-    CU[Custodian<br/>Stable Memory] -.-> forward
+    CU[Weight Agent<br/>Stable Memory] -.-> forward
     CU -.-> judgment
 ```
 
@@ -156,29 +156,29 @@ flowchart LR
 
 | Agent | Transformer analogue | Role |
 |-------|---------------------|------|
-| **Messenger** | Feed-forward activation | Performs work, proposes artifacts, streams voxel progress |
-| **Decomposer** | Task routing / input projection | Breaks the project goal into subtasks, assigns specialists |
-| **Attention** | Core attention mechanism | Judges pairwise qualitative dependencies (economic, kinship, prestige…) |
-| **Negotiator** | Multi-head contention resolution | Structured proposal / counter-offer rounds on contested tasks |
-| **Auditor** | Cost function / loss | Measures collective regret against the *ought* snapshot |
-| **Conflict Resolver** | High-loss intervention | Voting & compromise when regret spikes or conflict is injected |
-| **Reformer** | Gradient descent / update | Adjusts agent adjectives and roles after misalignment |
-| **Confessor** | Backward / residual flow | Writes learnings to the Custodian weight matrix |
+| **Feed-Forward Agent** | Feed-forward activation | Performs work, proposes artifacts, streams voxel progress |
+| **Input Projection Agent** | Task routing / input projection | Breaks the project goal into subtasks, assigns specialists |
+| **Attention Agent** | Core attention mechanism | Judges pairwise qualitative dependencies (economic, kinship, prestige…) |
+| **Multi-Head Agent** | Multi-head contention resolution | Structured proposal / counter-offer rounds on contested tasks |
+| **Loss Agent** | Cost function / loss | Measures collective regret against the *ought* snapshot |
+| **Intervention Agent** | High-loss intervention | Voting & compromise when regret spikes or conflict is injected |
+| **Gradient Descent Agent** | Gradient descent / update | Adjusts agent adjectives and roles after misalignment |
+| **Residual Flow Agent** | Backward / residual flow | Writes learnings to the Weight Agent matrix |
 | **Lifecycle** | Birth · survival · death rules | Agents emerge, endure, or dissolve based on dependency strength |
-| **Institutions** | Low-rank condensation | Crystallized governance from repeated playbook patterns |
+| **Low-Rank Agent** | Low-rank condensation | Crystallized governance from repeated playbook patterns |
 | **Seasons** | Temporal modulation | Sharp vs diffuse judgment across macro/micro cycles |
-| **RAPTOR** | Hierarchical memory | Long-horizon synthesis of playbook history |
+| **Hierarchical Memory Agent** | Hierarchical memory | Long-horizon synthesis of playbook history |
 
 ### Specialist cast
 
 | Specialist | Focus |
 |------------|-------|
-| Voxel Architect | Conway colony visualization |
-| Orchestrator | LangGraph + SSE pipeline |
-| Optimizer | Benchmark harness & metrics |
-| Integrator | FastAPI + Three.js glue |
-| UX Weaver | Dashboard, negotiation panel, controls |
-| Critic / Evaluator | Society vs baseline comparison |
+| Voxel Architect Agent | Conway colony visualization |
+| Orchestrator Agent | LangGraph + SSE pipeline |
+| Optimizer Agent | Benchmark harness & metrics |
+| Integrator Agent | FastAPI + Three.js glue |
+| UX Weaver Agent | Dashboard, negotiation panel, controls |
+| Critic Evaluator Agent | Society vs baseline comparison |
 
 Workers fill the meadow with foraging, patrol, and relay behaviors — scaling the colony to hundreds of agents.
 
@@ -188,9 +188,9 @@ Workers fill the meadow with foraging, patrol, and relay behaviors — scaling t
 
 | Requirement | Implementation |
 |-------------|----------------|
-| Task decomposition & role assignment | `Decomposer` + `Attention` matching |
-| Dialogue & negotiation | `Negotiator` with live negotiation panel |
-| Conflict resolution | `ConflictResolver` on Auditor regret ≥ 0.55 |
+| Task decomposition & role assignment | `Input Projection Agent` + `Attention Agent` matching |
+| Dialogue & negotiation | `Multi-Head Agent` with live negotiation panel |
+| Conflict resolution | `Intervention Agent` on Loss Agent regret ≥ 0.55 |
 | Efficiency gain | Dual mode + live metrics dashboard |
 
 ---
@@ -255,9 +255,9 @@ Suggested mapping (June 2026):
 
 | Role | Model |
 |------|-------|
-| Auditor, Attention, Reformer, Negotiator, Conflict Resolver, Baseline | `qwen3.7-max-2026-06-08` |
-| Messenger, Decomposer | `qwen3.7-plus-2026-06-08` |
-| Confessor, Custodian | `qwen3.6-plus-2026-04-02` |
+| Loss, Attention, Gradient Descent, Multi-Head, Intervention, Baseline Agents | `qwen3.7-max-2026-06-08` |
+| Feed-Forward, Input Projection Agents | `qwen3.7-plus-2026-06-08` |
+| Residual Flow, Weight Agents | `qwen3.6-plus-2026-04-02` |
 | Voxel Architect, Orchestrator, Integrator | `qwen2.5-coder-32b-instruct` |
 | Fast / lightweight agents | `qwen3.6-flash-2026-04-02` |
 | Vision / UI tasks | `qwen3-vl-plus` or `qwen3-vl-max` |

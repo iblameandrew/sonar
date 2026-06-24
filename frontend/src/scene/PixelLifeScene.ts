@@ -130,8 +130,8 @@ export class PixelLifeScene {
     this.layers = {
       lifeGrid: true, agents: true, connections: true, negotiations: true,
       institutions: true, colony: true, conflictArena: true, metrics: true,
-      birthDeath: true, attention: true, auditor: true, reformer: true,
-      confessor: true, messenger: true,
+      birthDeath: true, attention_agent: true, loss_agent: true, gradient_descent_agent: true,
+      residual_flow_agent: true, feed_forward_agent: true,
     };
 
     canvas.addEventListener("click", (e) => this.onClick(e, canvas));
@@ -142,12 +142,12 @@ export class PixelLifeScene {
     const p = event.payload;
     switch (event.type) {
       case "attention_judgment":
-        if (this.layers.attention) this.addConnection(p as unknown as DependencyEntry);
+        if (this.layers.attention_agent) this.addConnection(p as unknown as DependencyEntry);
         break;
       case "messenger_propose":
       case "reformer_update":
       case "task_decomposed":
-        if (this.layers.agents || this.layers.messenger) {
+        if (this.layers.agents || this.layers.feed_forward_agent) {
           const id = (p.agent_id ?? p.assigned_to) as string;
           if (id) this.pulseAgent(id);
         }
@@ -160,7 +160,7 @@ export class PixelLifeScene {
         if (this.layers.conflictArena) this.flashConflictArena();
         break;
       case "auditor_regret":
-        if (this.layers.auditor) this.flashSky(0xffccbc);
+        if (this.layers.loss_agent) this.flashSky(0xffccbc);
         break;
       case "colony_voxel":
         if (this.layers.colony) this.placeColonyVoxel(p as { x: number; y: number; color: string });

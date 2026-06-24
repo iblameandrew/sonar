@@ -5,6 +5,7 @@ import uuid
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
+from app.roles import INPUT_PROJECTION_AGENT
 from app.llm.qwen_factory import qwen_factory
 from app.models.agent import QualitativeAgent, SpecialistRole
 from app.models.canvas import ProjectCanvas, Subtask
@@ -56,7 +57,7 @@ class Decomposer:
         pending = [t for t in canvas.subtasks if t.status == "pending"]
 
         result = qwen_factory.invoke_structured(
-            "decomposer",
+            INPUT_PROJECTION_AGENT,
             DecomposeResult,
             DECOMPOSE_PROMPT,
             {

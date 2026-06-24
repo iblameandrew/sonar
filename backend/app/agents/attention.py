@@ -5,6 +5,7 @@ import asyncio
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
+from app.roles import ATTENTION_AGENT
 from app.llm.qwen_factory import qwen_factory
 from app.models.agent import DependencyEntry, QualitativeAgent
 
@@ -101,7 +102,7 @@ class AttentionAgent:
             return None
 
         result = await qwen_factory.ainvoke_structured(
-            "attention",
+            ATTENTION_AGENT,
             AttentionJudgment,
             ATTENTION_PROMPT,
             {

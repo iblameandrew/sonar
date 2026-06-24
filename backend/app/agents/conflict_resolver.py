@@ -5,6 +5,7 @@ import uuid
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
+from app.roles import INTERVENTION_AGENT
 from app.llm.qwen_factory import qwen_factory
 from app.models.agent import QualitativeAgent
 from app.models.canvas import Artifact, NegotiationRound, ProjectCanvas
@@ -56,7 +57,7 @@ class ConflictResolver:
         b = disputants[1] if len(disputants) > 1 else disputants[0]
 
         result = qwen_factory.invoke_structured(
-            "conflict_resolver",
+            INTERVENTION_AGENT,
             ConflictResolution,
             CONFLICT_PROMPT,
             {
