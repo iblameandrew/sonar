@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import time
 from dataclasses import dataclass, field
@@ -42,6 +43,8 @@ from app.llm.models import (
 
 T = TypeVar("T", bound=BaseModel)
 
+logger = logging.getLogger(__name__)
+
 DASHSCOPE_BASE = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 DEFAULT_MODEL = os.getenv("QWEN_MODEL", CATALOG_DEFAULT)
 
@@ -77,6 +80,16 @@ class QwenLLMFactory:
         self._total_input = 0
         self._total_output = 0
         self._call_count = 0
+        self._last_error: str = ""
+
+    def _record_llm_error(self, role: str, exc: Exception) -> None:
+        msg = str(exc).strip() or exc.__class__.__name__
+        self._last_error = msg
+        lower = msg.lower()
+        if any(k in lower for k in ("quota", "rate limit", "insufficient", "balance", "exceeded", "429")):
+            logger.error("Qwen quota/rate error [%s]: %s", role, msg)
+        else:
+            logger.warning("Qwen call failed [%s]: %s", role, msg)
 
     def _api_key(self) -> str | None:
         return os.getenv("DASHSCOPE_API_KEY") or os.getenv("QWEN_API_KEY")
@@ -88,6 +101,7 @@ class QwenLLMFactory:
         os.environ["DASHSCOPE_API_KEY"] = key.strip()
         os.environ.pop("QWEN_API_KEY", None)
         self._instances.clear()
+        self._last_error = ""
 
     def masked_api_key(self) -> str:
         key = self._api_key()
@@ -244,7 +258,8 @@ class QwenLLMFactory:
             inp_tok, out_tok = self._estimate_tokens(messages, out_str)
             self._record_usage(role, config.model, inp_tok, out_tok, start)
             return result
-        except Exception:
+        except Exception as exc:
+            self._record_llm_error(role, exc)
             return None
 
     async def ainvoke_structured(
@@ -270,7 +285,8 @@ class QwenLLMFactory:
             inp_tok, out_tok = self._estimate_tokens(messages, out_str)
             self._record_usage(role, config.model, inp_tok, out_tok, start)
             return result
-        except Exception:
+        except Exception as exc:
+            self._record_llm_error(role, exc)
             return None
 
     def invoke_text(
@@ -294,7 +310,8 @@ class QwenLLMFactory:
             inp_tok, out_tok = self._estimate_tokens(messages, content)
             self._record_usage(role, config.model, inp_tok, out_tok, start)
             return content
-        except Exception:
+        except Exception as exc:
+            self._record_llm_error(role, exc)
             return None
 
     def _record_usage(
@@ -344,15 +361,19 @@ class QwenLLMFactory:
 
     def get_status(self) -> dict[str, Any]:
         configured = self.is_configured()
+        status_message = (
+            "All agents powered by Qwen Cloud ✓"
+            if configured
+            else "Set your DashScope API key in the dashboard"
+        )
+        if self._last_error:
+            status_message = f"Qwen error: {self._last_error}"
         return {
             "provider": "Qwen Cloud (DashScope)",
             "configured": configured,
             "api_key_masked": self.masked_api_key(),
-            "status_message": (
-                "All agents powered by Qwen Cloud ✓"
-                if configured
-                else "Set your DashScope API key in the dashboard"
-            ),
+            "last_error": self._last_error,
+            "status_message": status_message,
             "default_model": DEFAULT_MODEL,
             "available_models": catalog_for_api(),
             "role_labels": ROLE_LABELS,

@@ -10,6 +10,7 @@ from sse_starlette.sse import EventSourceResponse
 from app.graph.simulation_graph import engine
 from app.llm.qwen_factory import qwen_factory
 from app.grid import WORLD_SIZE, total_walkable_cells
+from app.models.events import SimEvent
 from app.seed import create_colony_agents, create_project_canvas
 from app.simulation.runner import runner
 
@@ -108,6 +109,13 @@ async def run_society(req: StartRequest) -> dict[str, Any]:
     canvas = create_project_canvas(prompt)
 
     async def _launch() -> None:
+        await runner.event_queue.put(
+            SimEvent(
+                type="simulation_started",
+                tick=0,
+                payload={"goal": canvas.goal, "agent_count": req.agent_count},
+            )
+        )
         await runner.start(
             req.max_ticks,
             req.speed,

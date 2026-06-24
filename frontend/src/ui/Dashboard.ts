@@ -31,6 +31,7 @@ export interface QwenStatus {
   provider: string;
   configured: boolean;
   api_key_masked: string;
+  last_error?: string;
   status_message: string;
   default_model: string;
   available_models?: QwenModelEntry[];
@@ -147,6 +148,19 @@ export class Dashboard {
     await this.submitApiKey(stored, { silent: true });
   }
 
+  async ensureApiKey(): Promise<boolean> {
+    const res = await fetch("/api/qwen/status");
+    const status: QwenStatus = await res.json();
+    if (status.configured) {
+      this.renderQwen(status);
+      return true;
+    }
+    const stored = getStoredApiKey();
+    if (!stored) return false;
+    const restored = await this.submitApiKey(stored, { silent: true });
+    return Boolean(restored?.configured);
+  }
+
   private initLayers(): void {
     if (!this.scene) return;
     const container = document.getElementById("layer-toggles")!;
@@ -188,9 +202,13 @@ export class Dashboard {
     this.badgeEl.className = `badge ${ok ? "badge-ok" : "badge-warn"}`;
 
     const u = status.usage;
+    const errLine = status.last_error
+      ? `<div class="qwen-error">Last error: ${status.last_error}</div>`
+      : "";
     this.qwenStatusEl.innerHTML = `
       <strong>${status.status_message}</strong><br/>
       ${status.api_key_masked ? `Key: <code>${status.api_key_masked}</code><br/>` : ""}
+      ${errLine}
       Calls: ${u.total_calls} · Tokens: ${u.total_tokens}<br/>
       In: ${u.total_input_tokens} · Out: ${u.total_output_tokens}
     `;

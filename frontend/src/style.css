@@ -290,7 +290,15 @@ html, body, #app {
   border-radius: 10px;
   min-width: 180px;
 }
+.btn:disabled,
+.btn.is-deploying {
+  opacity: 0.55;
+  cursor: not-allowed;
+  pointer-events: none;
+  filter: grayscale(0.15);
+}
 .btn-warn { border-color: #ffab91; color: #d84315; background: #fff3e0; }
+.qwen-error { color: #c62828; font-size: 11px; margin-top: 6px; line-height: 1.4; }
 
 .api-key-row { display: flex; gap: 8px; margin-bottom: 8px; }
 .api-key-row input {

@@ -18,6 +18,7 @@ let scene: import("./scene/colony-scene").ColonyScene | null = null;
 let dashboard: Dashboard;
 const sse = new SSEClient();
 let colonyRefreshTick = 0;
+let deploying = false;
 
 async function api<T = Record<string, unknown>>(path: string, method = "GET", body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -52,6 +53,17 @@ function setActiveGoal(goal: string): void {
   activeGoalEl.textContent = goal ? `Solving: ${goal}` : "";
 }
 
+function setDeployButtonsActive(active: boolean): void {
+  deploying = active;
+  for (const id of ["btn-solve", "btn-society"]) {
+    const btn = document.getElementById(id) as HTMLButtonElement | null;
+    if (!btn) continue;
+    btn.disabled = active;
+    btn.classList.toggle("is-deploying", active);
+    btn.setAttribute("aria-busy", active ? "true" : "false");
+  }
+}
+
 function showBootError(err: unknown): void {
   const msg = err instanceof Error ? err.message : String(err);
   console.error("Colony boot failed:", err);
@@ -62,18 +74,63 @@ function showBootError(err: unknown): void {
   }
 }
 
+function wireSseHandlers(): void {
+  sse.onAll((event: SimEvent) => {
+    scene?.handleEvent(event);
+    dashboard.logEvent(event);
+    if (event.type === "negotiation_round" || event.type === "conflict_resolved") {
+      dashboard.addNegotiation(event.payload as never);
+    }
+    if (event.type === "society_metrics" || event.type === "comparison_metrics") {
+      dashboard.updateMetrics(event.payload as unknown as ComparisonMetrics);
+    }
+    if (event.type === "qwen_usage") dashboard.updateQwen(event.payload as never);
+    if (event.type === "task_decomposed" || event.type === "messenger_propose") {
+      api<ProjectCanvas>("/canvas").then((c) => dashboard.updateTasks(c));
+    }
+    if (event.type === "simulation_started") {
+      modeLabel.textContent = "Society";
+      setDeployButtonsActive(false);
+      dashboard.switchTab("activity");
+    }
+    if (event.tick !== undefined) tickLabel.textContent = `Tick ${event.tick}`;
+    if (event.type === "phase_change") phaseLabel.textContent = String(event.payload.design_phase ?? "?");
+    if (event.type === "auditor_regret") regretLabel.textContent = `Regret ${(event.payload.regret as number).toFixed(2)}`;
+    if (event.type === "sim_complete") {
+      modeLabel.textContent = String(event.payload.mode);
+      setDeployButtonsActive(false);
+      api<{ comparison?: ComparisonMetrics }>("/metrics").then((m) => {
+        if (m.comparison) dashboard.updateMetrics(m.comparison);
+      });
+    }
+    if (event.type === "sim_error") {
+      activeGoalEl.textContent = `Simulation error: ${String(event.payload.message ?? "unknown")}`;
+      modeLabel.textContent = "Error";
+      setDeployButtonsActive(false);
+    }
+  });
+}
+
 async function deployColony() {
+  if (deploying) return;
+
   const prompt = getPrompt();
-  const solveBtn = document.getElementById("btn-solve") as HTMLButtonElement | null;
-  const societyBtn = document.getElementById("btn-society") as HTMLButtonElement | null;
 
   try {
+    setDeployButtonsActive(true);
     modeLabel.textContent = "Starting…";
     activeGoalEl.textContent = prompt
       ? "Deploying colony…"
       : "Deploying colony with default goal…";
-    solveBtn && (solveBtn.disabled = true);
-    societyBtn && (societyBtn.disabled = true);
+
+    const hasKey = await dashboard.ensureApiKey();
+    if (!hasKey) {
+      dashboard.logEvent({
+        type: "qwen_offline",
+        tick: 0,
+        payload: { message: "No API key — running heuristic agents only. Connect in Settings for Qwen Cloud." },
+      });
+    }
 
     const agentCount = dashboard.getAgentCount();
     const started = await api<{ status?: string; goal?: string }>("/sim/society", "POST", {
@@ -83,7 +140,13 @@ async function deployColony() {
       prompt,
     });
 
-    modeLabel.textContent = "Society";
+    dashboard.switchTab("activity");
+    dashboard.logEvent({
+      type: "simulation_started",
+      tick: 0,
+      payload: { goal: started.goal ?? prompt, local: true },
+    });
+
     const s = await api<{
       agents?: Agent[];
       canvas?: ProjectCanvas;
@@ -92,6 +155,7 @@ async function deployColony() {
       design_phase?: string;
       regret?: number;
       execution_mode?: string;
+      running?: boolean;
     }>("/state");
 
     scene?.loadAgents(s.agents ?? []);
@@ -101,22 +165,22 @@ async function deployColony() {
     const goal = s.canvas?.goal ?? started.goal ?? prompt;
     if (goal) setActiveGoal(goal);
     updateStatus(s);
-    dashboard.switchTab("colony");
+    modeLabel.textContent = s.running ? "Society" : String(s.execution_mode ?? "Society");
     activeGoalEl.textContent = goal ? `Solving: ${goal}` : "Colony running";
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("Deploy failed:", err);
     modeLabel.textContent = "Idle";
     activeGoalEl.textContent = `Deploy failed: ${msg}`;
-  } finally {
-    solveBtn && (solveBtn.disabled = false);
-    societyBtn && (societyBtn.disabled = false);
+    dashboard.logEvent({ type: "deploy_failed", tick: 0, payload: { message: msg } });
+    dashboard.switchTab("activity");
+    setDeployButtonsActive(false);
   }
 }
 
 function wireControls(): void {
-  document.getElementById("btn-solve")!.onclick = () => deployColony();
-  document.getElementById("btn-society")!.onclick = () => deployColony();
+  document.getElementById("btn-solve")!.onclick = () => void deployColony();
+  document.getElementById("btn-society")!.onclick = () => void deployColony();
   document.getElementById("btn-baseline")!.onclick = async () => {
     modeLabel.textContent = "Baseline";
     await api("/sim/baseline", "POST", { max_ticks: 40, speed: 1, prompt: getPrompt() });
@@ -137,6 +201,31 @@ function startRenderLoop(): void {
   })();
 }
 
+async function hydrateFromState(state: {
+  qwen?: QwenStatus;
+  agents?: Agent[];
+  canvas?: ProjectCanvas;
+  colony?: ColonyInfo;
+  tick?: number;
+  design_phase?: string;
+  regret?: number;
+  execution_mode?: string;
+}): Promise<void> {
+  if (state.qwen) dashboard.updateQwen(state.qwen);
+  if (state.agents?.length) {
+    scene?.loadAgents(state.agents);
+    if (state.canvas?.colony_voxels) scene?.loadColonyVoxels(state.canvas.colony_voxels);
+    dashboard.updateTasks(state.canvas);
+    dashboard.refreshColony(state.agents);
+    if (state.colony) dashboard.updateColonyFromServer(state.colony);
+    if (state.canvas?.goal) {
+      setActiveGoal(state.canvas.goal);
+      if (!promptInput.value) promptInput.value = state.canvas.goal;
+    }
+    updateStatus(state);
+  }
+}
+
 async function init() {
   const { Dashboard: DashboardCtor } = await import("./ui/Dashboard");
   try {
@@ -150,6 +239,8 @@ async function init() {
   }
 
   wireControls();
+  wireSseHandlers();
+  sse.connect();
 
   try {
     await dashboard.loadQwen();
@@ -157,36 +248,21 @@ async function init() {
     console.error("Qwen status failed:", err);
   }
 
-  let state: {
-    qwen?: QwenStatus;
-    agents?: Agent[];
-    canvas?: ProjectCanvas;
-    colony?: ColonyInfo;
-    tick?: number;
-    design_phase?: string;
-    regret?: number;
-    execution_mode?: string;
-  } | null = null;
   try {
-    state = await api("/state");
+    const state = await api<{
+      qwen?: QwenStatus;
+      agents?: Agent[];
+      canvas?: ProjectCanvas;
+      colony?: ColonyInfo;
+      tick?: number;
+      design_phase?: string;
+      regret?: number;
+      execution_mode?: string;
+    }>("/state");
+    await hydrateFromState(state);
   } catch (err) {
     console.error("Initial state failed:", err);
     activeGoalEl.textContent = "Backend unreachable — start the API server on :8000.";
-    return;
-  }
-  if (!state) return;
-  if (state.qwen) dashboard.updateQwen(state.qwen);
-  if (state.agents?.length) {
-    scene?.loadAgents(state.agents);
-    if (state.canvas?.colony_voxels) scene?.loadColonyVoxels(state.canvas.colony_voxels);
-    dashboard.updateTasks(state.canvas);
-    dashboard.refreshColony(state.agents);
-    if (state.colony) dashboard.updateColonyFromServer(state.colony);
-    if (state.canvas?.goal) {
-      setActiveGoal(state.canvas.goal);
-      if (!promptInput.value) promptInput.value = state.canvas.goal;
-    }
-    updateStatus(state);
   }
 
   if (scene) {
@@ -206,36 +282,6 @@ async function init() {
 
     scene.onMovement = (agent, from) => dashboard.logMovement(agent, from);
   }
-
-  sse.connect();
-  sse.onAll((event: SimEvent) => {
-    scene?.handleEvent(event);
-    dashboard.logEvent(event);
-    if (event.type === "negotiation_round" || event.type === "conflict_resolved") {
-      dashboard.addNegotiation(event.payload as never);
-    }
-    if (event.type === "society_metrics" || event.type === "comparison_metrics") {
-      dashboard.updateMetrics(event.payload as unknown as ComparisonMetrics);
-      dashboard.switchTab("metrics");
-    }
-    if (event.type === "qwen_usage") dashboard.updateQwen(event.payload as never);
-    if (event.type === "task_decomposed" || event.type === "messenger_propose") {
-      api<ProjectCanvas>("/canvas").then((c) => dashboard.updateTasks(c));
-    }
-    if (event.tick) tickLabel.textContent = `Tick ${event.tick}`;
-    if (event.type === "phase_change") phaseLabel.textContent = String(event.payload.design_phase ?? "?");
-    if (event.type === "auditor_regret") regretLabel.textContent = `Regret ${(event.payload.regret as number).toFixed(2)}`;
-    if (event.type === "sim_complete") {
-      modeLabel.textContent = String(event.payload.mode);
-      api<{ comparison?: ComparisonMetrics }>("/metrics").then((m) => {
-        if (m.comparison) dashboard.updateMetrics(m.comparison);
-      });
-    }
-    if (event.type === "sim_error") {
-      activeGoalEl.textContent = `Simulation error: ${String(event.payload.message ?? "unknown")}`;
-      modeLabel.textContent = "Error";
-    }
-  });
 }
 
 function updateStatus(state: Record<string, unknown>) {
