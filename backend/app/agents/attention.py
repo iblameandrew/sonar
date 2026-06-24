@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+from collections.abc import Awaitable, Callable
 
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
@@ -236,9 +237,13 @@ class AttentionAgent:
         temperature: str,
         dominant_kind: str,
         attention_policy: dict | None = None,
+        on_progress: Callable[[int, int, int], Awaitable[None]] | None = None,
     ) -> list[DependencyEntry]:
         sem = asyncio.Semaphore(self.max_concurrency)
         pairs = self._select_pairs(agents, attention_policy)
+        total = len(pairs)
+        done = 0
+        entries: list[DependencyEntry] = []
 
         async def _judge(a: QualitativeAgent, b: QualitativeAgent) -> DependencyEntry | None:
             async with sem:
@@ -246,5 +251,13 @@ class AttentionAgent:
                     a, b, tick, season_weight, temperature, dominant_kind, attention_policy,
                 )
 
-        results = await asyncio.gather(*[_judge(a, b) for a, b in pairs])
-        return [r for r in results if r is not None]
+        tasks = [asyncio.create_task(_judge(a, b)) for a, b in pairs]
+        for finished in asyncio.as_completed(tasks):
+            result = await finished
+            done += 1
+            if result is not None:
+                entries.append(result)
+            if on_progress and (done % 4 == 0 or done == total):
+                await on_progress(done, total, len(entries))
+
+        return entries

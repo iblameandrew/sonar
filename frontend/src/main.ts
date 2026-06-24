@@ -20,6 +20,8 @@ let dashboard: Dashboard;
 const sse = new SSEClient();
 let colonyRefreshTick = 0;
 let deploying = false;
+let pollTimer: number | null = null;
+let pollSnapshot = { tick: -1, playbookLen: 0, running: false };
 
 async function api<T = Record<string, unknown>>(path: string, method = "GET", body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -75,49 +77,141 @@ function showBootError(err: unknown): void {
   }
 }
 
-function wireSseHandlers(): void {
-  sse.onAll((event: SimEvent) => {
-    scene?.handleEvent(event);
-    dashboard.logEvent(event);
-    if (event.type === "negotiation_round" || event.type === "conflict_resolved") {
-      dashboard.addNegotiation(event.payload as never);
+type LiveState = {
+  tick?: number;
+  max_ticks?: number;
+  running?: boolean;
+  design_phase?: string;
+  regret?: number;
+  execution_mode?: string;
+  agents?: Agent[];
+  canvas?: ProjectCanvas;
+  colony?: ColonyInfo;
+  playbook?: unknown[];
+};
+
+function stopStatePolling(): void {
+  if (pollTimer !== null) {
+    window.clearInterval(pollTimer);
+    pollTimer = null;
+  }
+  pollSnapshot = { tick: -1, playbookLen: 0, running: false };
+}
+
+async function pollSimulationState(): Promise<void> {
+  try {
+    const s = await api<LiveState>("/state");
+    if (!s.running) {
+      stopStatePolling();
+      setDeployButtonsActive(false);
+      return;
     }
-    if (event.type === "society_metrics" || event.type === "comparison_metrics") {
-      dashboard.updateMetrics(event.payload as unknown as ComparisonMetrics);
-    }
-    if (event.type === "qwen_usage") dashboard.updateQwen(event.payload as never);
-    if (event.type === "task_decomposed" || event.type === "messenger_propose") {
-      api<ProjectCanvas>("/canvas").then((c) => dashboard.updateTasks(c));
-    }
-    if (event.type === "attention_policy_configured") {
-      dashboard.updateActiveAttentionPolicy(
-        event.payload.policy as never,
-        event.payload.preview as never,
+
+    const playbookLen = Array.isArray(s.playbook) ? s.playbook.length : 0;
+    const maxTicks = s.max_ticks ?? 80;
+    dashboard.updateRunProgress(s.tick ?? 0, maxTicks, playbookLen, "polling backend");
+
+    if (s.tick !== pollSnapshot.tick) {
+      pollSnapshot.tick = s.tick ?? 0;
+      pollSnapshot.playbookLen = playbookLen;
+    } else if (playbookLen > pollSnapshot.playbookLen) {
+      dashboard.logEvent(
+        {
+          type: "attention_progress",
+          tick: s.tick ?? 0,
+          payload: { done: playbookLen, total: "?", matched: playbookLen, source: "poll" },
+        },
+        { force: true },
       );
+      pollSnapshot.playbookLen = playbookLen;
     }
-    if (event.type === "simulation_started") {
-      modeLabel.textContent = "Society";
-      setDeployButtonsActive(false);
-      dashboard.switchTab("activity");
+
+    scene?.loadAgents(s.agents ?? []);
+    dashboard.updateTasks(s.canvas);
+    dashboard.refreshColony(s.agents);
+    if (s.colony) dashboard.updateColonyFromServer(s.colony);
+    updateStatus(s);
+    const goal = s.canvas?.goal;
+    if (goal) {
+      activeGoalEl.textContent = `Tick ${s.tick ?? 0}/${maxTicks} · ${playbookLen} edges · ${goal.slice(0, 64)}`;
     }
-    if (event.type === "tick_started") {
-      activeGoalEl.textContent = `Tick ${event.tick} / ${event.payload.max_ticks ?? "?"} — agents computing…`;
-    }
-    if (event.tick !== undefined) tickLabel.textContent = `Tick ${event.tick}`;
-    if (event.type === "phase_change") phaseLabel.textContent = String(event.payload.design_phase ?? "?");
-    if (event.type === "auditor_regret") regretLabel.textContent = `Regret ${(event.payload.regret as number).toFixed(2)}`;
-    if (event.type === "sim_complete") {
-      modeLabel.textContent = String(event.payload.mode);
-      setDeployButtonsActive(false);
-      api<{ comparison?: ComparisonMetrics }>("/metrics").then((m) => {
-        if (m.comparison) dashboard.updateMetrics(m.comparison);
-      });
-    }
-    if (event.type === "sim_error") {
-      activeGoalEl.textContent = `Simulation error: ${String(event.payload.message ?? "unknown")}`;
-      modeLabel.textContent = "Error";
-      setDeployButtonsActive(false);
-    }
+  } catch {
+    dashboard.updateStreamStatus(sse.isConnected(), "state poll failed");
+  }
+}
+
+function startStatePolling(): void {
+  stopStatePolling();
+  pollSnapshot.running = true;
+  void pollSimulationState();
+  pollTimer = window.setInterval(() => void pollSimulationState(), 2000);
+}
+
+function applyLiveEvent(event: SimEvent): void {
+  scene?.handleEvent(event);
+  dashboard.logEvent(event);
+
+  if (event.type === "negotiation_round" || event.type === "conflict_resolved") {
+    dashboard.addNegotiation(event.payload as never);
+  }
+  if (event.type === "society_metrics" || event.type === "comparison_metrics") {
+    dashboard.updateMetrics(event.payload as unknown as ComparisonMetrics);
+  }
+  if (event.type === "qwen_usage") dashboard.updateQwen(event.payload as never);
+  if (event.type === "task_decomposed" || event.type === "messenger_propose") {
+    api<ProjectCanvas>("/canvas").then((c) => dashboard.updateTasks(c));
+  }
+  if (event.type === "attention_policy_configured") {
+    dashboard.updateActiveAttentionPolicy(
+      event.payload.policy as never,
+      event.payload.preview as never,
+    );
+  }
+  if (event.type === "simulation_started") {
+    modeLabel.textContent = "Society";
+    setDeployButtonsActive(false);
+    dashboard.switchTab("activity");
+    startStatePolling();
+  }
+  if (event.type === "tick_started") {
+    const max = Number(event.payload.max_ticks ?? 80);
+    activeGoalEl.textContent = `Tick ${event.tick}/${max} — agents computing…`;
+    dashboard.updateRunProgress(event.tick, max, 0, "tick in progress");
+  }
+  if (event.type === "attention_progress") {
+    const max = Number(event.payload.max_ticks ?? pollSnapshot.tick + 1);
+    dashboard.updateRunProgress(
+      event.tick,
+      max,
+      Number(event.payload.matched ?? 0),
+      `${event.payload.done}/${event.payload.total} pairs`,
+    );
+  }
+  if (event.tick !== undefined) tickLabel.textContent = `Tick ${event.tick}`;
+  if (event.type === "phase_change") phaseLabel.textContent = String(event.payload.design_phase ?? "?");
+  if (event.type === "auditor_regret") regretLabel.textContent = `Regret ${(event.payload.regret as number).toFixed(2)}`;
+  if (event.type === "sim_complete") {
+    modeLabel.textContent = String(event.payload.mode);
+    setDeployButtonsActive(false);
+    stopStatePolling();
+    api<{ comparison?: ComparisonMetrics }>("/metrics").then((m) => {
+      if (m.comparison) dashboard.updateMetrics(m.comparison);
+    });
+  }
+  if (event.type === "sim_error") {
+    activeGoalEl.textContent = `Simulation error: ${String(event.payload.message ?? "unknown")}`;
+    modeLabel.textContent = "Error";
+    setDeployButtonsActive(false);
+    stopStatePolling();
+  }
+}
+
+function wireSseHandlers(): void {
+  sse.onConnection((connected) => {
+    dashboard.updateStreamStatus(connected);
+  });
+  sse.onAll((event: SimEvent) => {
+    applyLiveEvent(event);
   });
 }
 
@@ -142,6 +236,10 @@ async function deployColony() {
       });
     }
 
+    sse.reconnect();
+    dashboard.switchTab("activity");
+    dashboard.updateStreamStatus(false, "awaiting events");
+
     const agentCount = dashboard.getAgentCount();
     const attentionPolicy = dashboard.getAttentionPolicy();
     const started = await api<{ status?: string; goal?: string }>("/sim/society", "POST", {
@@ -152,23 +250,10 @@ async function deployColony() {
       attention_policy: attentionPolicy,
     });
 
-    dashboard.switchTab("activity");
-    dashboard.logEvent({
-      type: "simulation_started",
-      tick: 0,
-      payload: { goal: started.goal ?? prompt, local: true },
-    });
+    startStatePolling();
+    setDeployButtonsActive(false);
 
-    const s = await api<{
-      agents?: Agent[];
-      canvas?: ProjectCanvas;
-      colony?: ColonyInfo;
-      tick?: number;
-      design_phase?: string;
-      regret?: number;
-      execution_mode?: string;
-      running?: boolean;
-    }>("/state");
+    const s = await api<LiveState>("/state");
 
     scene?.loadAgents(s.agents ?? []);
     dashboard.updateTasks(s.canvas);
@@ -178,7 +263,10 @@ async function deployColony() {
     if (goal) setActiveGoal(goal);
     updateStatus(s);
     modeLabel.textContent = s.running ? "Society" : String(s.execution_mode ?? "Society");
-    activeGoalEl.textContent = goal ? `Solving: ${goal}` : "Colony running";
+    if (goal) setActiveGoal(goal);
+    if (s.running) {
+      dashboard.updateRunProgress(s.tick ?? 0, s.max_ticks ?? 80, Array.isArray(s.playbook) ? s.playbook.length : 0);
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("Deploy failed:", err);
@@ -269,17 +357,13 @@ async function init() {
   }
 
   try {
-    const state = await api<{
+    const state = await api<LiveState & {
       qwen?: QwenStatus;
-      agents?: Agent[];
-      canvas?: ProjectCanvas;
-      colony?: ColonyInfo;
-      tick?: number;
-      design_phase?: string;
-      regret?: number;
-      execution_mode?: string;
+      attention_policy?: AttentionPolicy;
+      attention_policy_preview?: PolicyPreview[];
     }>("/state");
     await hydrateFromState(state);
+    if (state.running) startStatePolling();
   } catch (err) {
     console.error("Initial state failed:", err);
     activeGoalEl.textContent = "Backend unreachable — start the API server on :8000.";

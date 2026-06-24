@@ -64,7 +64,9 @@ export class Dashboard {
   private negEl: HTMLElement;
   private taskEl: HTMLElement;
   private logEl: HTMLElement;
+  private streamStatusEl: HTMLElement;
   private qwenStatusEl: HTMLElement;
+  private lastProgressKey = "";
   private qwenModelsEl: HTMLElement;
   private badgeEl: HTMLElement;
   private apiInput: HTMLInputElement;
@@ -88,6 +90,7 @@ export class Dashboard {
     this.negEl = document.getElementById("negotiation-log")!;
     this.taskEl = document.getElementById("task-tree")!;
     this.logEl = document.getElementById("log-content")!;
+    this.streamStatusEl = document.getElementById("stream-status")!;
     this.qwenStatusEl = document.getElementById("qwen-status")!;
     this.qwenModelsEl = document.getElementById("qwen-models")!;
     this.badgeEl = document.getElementById("qwen-badge")!;
@@ -517,19 +520,91 @@ export class Dashboard {
     while (this.negEl.children.length > 15) this.negEl.lastChild?.remove();
   }
 
-  logEvent(event: SimEvent): void {
+  updateStreamStatus(connected: boolean, detail = ""): void {
+    const suffix = detail ? ` · ${detail}` : "";
+    this.streamStatusEl.textContent = connected
+      ? `Stream: live${suffix}`
+      : `Stream: reconnecting…${suffix}`;
+    this.streamStatusEl.classList.toggle("status-live", connected);
+    this.streamStatusEl.classList.toggle("status-warn", !connected);
+  }
+
+  updateRunProgress(tick: number, maxTicks: number, playbookEdges: number, detail = ""): void {
+    const key = `${tick}:${playbookEdges}:${detail}`;
+    if (key === this.lastProgressKey) return;
+    this.lastProgressKey = key;
+    const extra = detail ? ` · ${detail}` : "";
+    this.streamStatusEl.textContent =
+      `Tick ${tick}/${maxTicks} · ${playbookEdges} playbook edges${extra}`;
+    this.streamStatusEl.classList.add("status-live");
+    this.streamStatusEl.classList.remove("status-warn");
+  }
+
+  private formatEventLine(event: SimEvent): string {
+    const p = event.payload ?? {};
+    switch (event.type) {
+      case "simulation_started":
+        return `t${event.tick} · colony deployed · ${p.agent_count ?? "?"} agents · ${String(p.goal ?? "default goal").slice(0, 72)}`;
+      case "tick_started":
+        return `t${event.tick} · tick started · ${p.agent_count ?? "?"} agents · max ${p.max_ticks ?? "?"}`;
+      case "attention_progress":
+        return `t${event.tick} · attention ${p.done}/${p.total} pairs scored · ${p.matched} edges`;
+      case "heartbeat":
+        return `t${event.tick} · still computing…`;
+      case "attention_policy_configured":
+        return `t${event.tick} · attention policy applied · ${(p.preview as unknown[] | undefined)?.length ?? 0} weighted functions`;
+      case "auditor_regret":
+        return `t${event.tick} · regret ${Number(p.regret ?? 0).toFixed(2)}`;
+      case "sim_complete":
+        return `t${event.tick} · simulation complete · ${p.mode ?? "society"}`;
+      case "sim_error":
+        return `t${event.tick} · error · ${String(p.message ?? "unknown")}`;
+      case "deploy_failed":
+        return `t${event.tick} · deploy failed · ${String(p.message ?? "unknown")}`;
+      case "qwen_offline":
+        return `t${event.tick} · ${String(p.message ?? "Qwen offline")}`;
+      case "qwen_auth_failed":
+        return `t${event.tick} · API key rejected · ${String(p.message ?? "invalid key")}`;
+      default:
+        return `t${event.tick} · ${event.type}`;
+    }
+  }
+
+  logEvent(event: SimEvent, opts?: { force?: boolean }): void {
+    if (event.type === "heartbeat" && !opts?.force) {
+      this.updateRunProgress(event.tick, event.tick + 1, 0, "waiting for backend");
+      return;
+    }
+
+    const line = this.formatEventLine(event);
+    const top = this.logEl.firstElementChild as HTMLElement | null;
+    if (
+      !opts?.force
+      && top
+      && (event.type === "attention_progress" || event.type === "heartbeat")
+      && top.dataset?.eventType === event.type
+      && top.dataset?.tick === String(event.tick)
+    ) {
+      top.textContent = line;
+      return;
+    }
+
     const div = document.createElement("div");
     const cls =
       event.type.includes("negotiation") ? "negotiation"
       : event.type.includes("conflict") ? "conflict"
       : event.type.includes("task") ? "task"
       : event.type.includes("metrics") ? "metrics"
+      : event.type === "tick_started" || event.type === "attention_progress" ? "metrics"
       : event.type.includes("birth") || event.type.includes("death") ? "movement"
+      : event.type === "sim_error" || event.type === "deploy_failed" ? "conflict"
       : "";
     div.className = `log-entry ${cls}`;
-    div.textContent = `t${event.tick} · ${event.type}`;
+    div.textContent = line;
+    div.dataset.eventType = event.type;
+    div.dataset.tick = String(event.tick);
     this.logEl.prepend(div);
-    while (this.logEl.children.length > 50) this.logEl.lastChild?.remove();
+    while (this.logEl.children.length > 80) this.logEl.lastChild?.remove();
 
     if (event.type === "agent_birth" || event.type === "agent_death") {
       this.refreshColony();

@@ -1,19 +1,26 @@
 import type { SimEvent } from "../types";
 
 export type EventHandler = (event: SimEvent) => void;
+export type ConnectionHandler = (connected: boolean) => void;
 
 export class SSEClient {
   private source: EventSource | null = null;
   private handlers: Map<string, Set<EventHandler>> = new Map();
   private globalHandlers: Set<EventHandler> = new Set();
+  private connectionHandlers: Set<ConnectionHandler> = new Set();
+  private streamUrl = "/api/stream";
+  private reconnectTimer: number | null = null;
 
   connect(url = "/api/stream"): void {
+    this.streamUrl = url;
     this.disconnect();
     this.source = new EventSource(url);
+    this.source.onopen = () => {
+      this.notifyConnection(true);
+    };
     this.source.onmessage = (msg) => {
       try {
         const event: SimEvent = JSON.parse(msg.data);
-        if (event.type === "heartbeat") return;
         this.globalHandlers.forEach((h) => h(event));
         const typed = this.handlers.get(event.type);
         typed?.forEach((h) => h(event));
@@ -24,13 +31,43 @@ export class SSEClient {
       }
     };
     this.source.onerror = () => {
-      setTimeout(() => this.connect(url), 3000);
+      this.notifyConnection(false);
+      this.scheduleReconnect();
     };
   }
 
+  reconnect(): void {
+    this.connect(this.streamUrl);
+  }
+
+  isConnected(): boolean {
+    return this.source?.readyState === EventSource.OPEN;
+  }
+
+  onConnection(handler: ConnectionHandler): void {
+    this.connectionHandlers.add(handler);
+  }
+
+  private notifyConnection(connected: boolean): void {
+    this.connectionHandlers.forEach((h) => h(connected));
+  }
+
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer !== null) return;
+    this.reconnectTimer = window.setTimeout(() => {
+      this.reconnectTimer = null;
+      this.connect(this.streamUrl);
+    }, 2000);
+  }
+
   disconnect(): void {
+    if (this.reconnectTimer !== null) {
+      window.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.source?.close();
     this.source = null;
+    this.notifyConnection(false);
   }
 
   on(type: string, handler: EventHandler): void {

@@ -336,6 +336,14 @@ html, body, #app {
   line-height: 1.6;
   margin-bottom: 8px;
 }
+.status-card.status-live {
+  background: #e3f2fd;
+  border-color: #90caf9;
+}
+.status-card.status-warn {
+  background: #fff8e1;
+  border-color: #ffe082;
+}
 
 .scroll-box {
   max-height: min(280px, 32vh);

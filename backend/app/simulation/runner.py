@@ -258,7 +258,7 @@ class SimulationRunner:
     async def event_stream(self) -> AsyncGenerator[str, None]:
         while True:
             try:
-                event = await asyncio.wait_for(self.event_queue.get(), timeout=30.0)
+                event = await asyncio.wait_for(self.event_queue.get(), timeout=10.0)
                 yield f"data: {json.dumps(event.to_sse())}\n\n"
             except asyncio.TimeoutError:
                 tick = 0

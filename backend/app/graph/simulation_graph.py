@@ -70,10 +70,21 @@ async def decompose_node(state: SimulationState) -> dict[str, Any]:
 
 
 async def attend_node(state: SimulationState) -> dict[str, Any]:
+    from app.simulation.runner import runner
+
     tick = state["tick"]
     macro, micro, phase, temperature, dominant_kind, season_weight, season_event = (
         engine.seasons.resolve(tick)
     )
+
+    async def on_attention_progress(done: int, total: int, matched: int) -> None:
+        await runner.event_queue.put(
+            SimEvent(
+                type="attention_progress",
+                tick=tick,
+                payload={"done": done, "total": total, "matched": matched},
+            )
+        )
 
     entries = await engine.attention.judge_all_pairs(
         state["agents"],
@@ -82,6 +93,7 @@ async def attend_node(state: SimulationState) -> dict[str, Any]:
         temperature,
         dominant_kind,
         state.get("attention_policy"),
+        on_progress=on_attention_progress,
     )
 
     playbook = state["playbook"]
