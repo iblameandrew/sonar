@@ -19,6 +19,7 @@ from app.seed import create_colony_agents, create_project_canvas, ought_for_prom
 from app.models.agent import format_system_prompt
 from app.synthesis.final_answer import build_final_answer
 from app.synthesis.final_forward import run_final_forward_pass
+from app.synthesis.limits import clamp_answer_max_tokens
 
 
 class SimulationRunner:
@@ -54,6 +55,7 @@ class SimulationRunner:
         agent_count: int = 48,
         user_prompt: str | None = None,
         attention_policy: dict[str, Any] | None = None,
+        answer_max_tokens: int | None = None,
     ) -> SimulationState:
         return SimulationState(
             tick=0,
@@ -80,6 +82,7 @@ class SimulationRunner:
             paused=False,
             inject_conflict=False,
             attention_policy=normalize_policy(attention_policy),
+            answer_max_tokens=clamp_answer_max_tokens(answer_max_tokens),
         )
 
     async def start(
@@ -90,6 +93,7 @@ class SimulationRunner:
         agent_count: int = 48,
         user_prompt: str | None = None,
         attention_policy: dict[str, Any] | None = None,
+        answer_max_tokens: int | None = None,
     ) -> SimulationState:
         if self._task and not self._task.done():
             self._task.cancel()
@@ -108,7 +112,13 @@ class SimulationRunner:
             self.execution_mode = mode
             self.thread_id = str(uuid.uuid4())
             self.state = self._initial_state(
-                max_ticks, speed, mode, agent_count, user_prompt, attention_policy,
+                max_ticks,
+                speed,
+                mode,
+                agent_count,
+                user_prompt,
+                attention_policy,
+                answer_max_tokens,
             )
             self.state["running"] = True
             self.state["paused"] = False
@@ -394,6 +404,7 @@ class SimulationRunner:
             "running": s["running"],
             "paused": s.get("paused", False),
             "max_ticks": s["max_ticks"],
+            "answer_max_tokens": s.get("answer_max_tokens"),
             "speed": s["speed"],
             "agents": self._agents_for_api(s),
             "playbook": s["playbook"].to_matrix_summary(),

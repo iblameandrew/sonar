@@ -107,6 +107,18 @@
                   <option value="80">80 — full marathon</option>
                 </select>
               </label>
+              <label class="field-row">
+                <span>Answer max tokens</span>
+                <input
+                  id="answer-max-tokens"
+                  type="number"
+                  min="256"
+                  max="65536"
+                  step="256"
+                  value="8192"
+                  title="Max output tokens for the terminal forward-pass final answer (up to 64k)"
+                />
+              </label>
               <p class="hint">Hover grid cells for agent system prompts · Shift+drag pan · scroll zoom</p>
               <button id="btn-view-answer" class="btn btn-primary hidden" type="button">View Colony Answer</button>
               <button id="btn-reset" class="btn btn-reset" type="button" title="Stop simulation and clear colony state">↺ Reset Colony</button>

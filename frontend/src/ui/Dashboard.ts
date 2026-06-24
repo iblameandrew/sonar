@@ -23,6 +23,12 @@ import {
 import type { Agent, ColonyInfo, ComparisonMetrics, NegotiationRound, ProjectCanvas, SimEvent } from "../types";
 import { DASHBOARD_ROLES, roleLabel } from "../agentRoles";
 import type { ColonyScene } from "../scene/colony-scene";
+import {
+  clampAnswerMaxTokens,
+  DEFAULT_ANSWER_MAX_TOKENS,
+  getStoredAnswerMaxTokens,
+  saveAnswerMaxTokens,
+} from "../storage/simSettings";
 
 export interface QwenModelEntry {
   id: string;
@@ -98,6 +104,7 @@ export class Dashboard {
   private minimapCtx: CanvasRenderingContext2D;
   private agentCountInput: HTMLInputElement;
   private maxTicksSelect: HTMLSelectElement;
+  private answerMaxTokensInput: HTMLInputElement;
   private headsEl: HTMLElement;
   private policyPreviewEl: HTMLElement;
   private activePolicyEl: HTMLElement;
@@ -128,6 +135,13 @@ export class Dashboard {
     this.minimapCtx = this.minimapCanvas.getContext("2d")!;
     this.agentCountInput = document.getElementById("agent-count") as HTMLInputElement;
     this.maxTicksSelect = document.getElementById("max-ticks") as HTMLSelectElement;
+    this.answerMaxTokensInput = document.getElementById("answer-max-tokens") as HTMLInputElement;
+    this.answerMaxTokensInput.value = String(getStoredAnswerMaxTokens());
+    this.answerMaxTokensInput.addEventListener("change", () => {
+      const clamped = clampAnswerMaxTokens(parseInt(this.answerMaxTokensInput.value, 10));
+      this.answerMaxTokensInput.value = String(clamped);
+      saveAnswerMaxTokens(clamped);
+    });
     this.headsEl = document.getElementById("attention-heads")!;
     this.policyPreviewEl = document.getElementById("attention-policy-preview")!;
     this.activePolicyEl = document.getElementById("active-attention-policy")!;
@@ -146,6 +160,11 @@ export class Dashboard {
   getMaxTicks(): number {
     const n = parseInt(this.maxTicksSelect?.value ?? "12", 10);
     return Number.isFinite(n) ? Math.max(4, Math.min(500, n)) : 12;
+  }
+
+  getAnswerMaxTokens(): number {
+    const n = parseInt(this.answerMaxTokensInput?.value ?? String(DEFAULT_ANSWER_MAX_TOKENS), 10);
+    return clampAnswerMaxTokens(n);
   }
 
   getAttentionPolicy(): AttentionPolicy {

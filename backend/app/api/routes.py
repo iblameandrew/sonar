@@ -19,6 +19,7 @@ from app.grid import WORLD_SIZE, total_walkable_cells
 from app.models.events import SimEvent
 from app.seed import create_colony_agents, create_project_canvas
 from app.simulation.runner import runner
+from app.synthesis.limits import MAX_ANSWER_MAX_TOKENS, MIN_ANSWER_MAX_TOKENS, DEFAULT_ANSWER_MAX_TOKENS
 
 router = APIRouter(prefix="/api")
 
@@ -29,6 +30,11 @@ class StartRequest(BaseModel):
     agent_count: int = Field(default=48, ge=4, le=512)
     prompt: str = Field(default="", max_length=4000)
     attention_policy: dict[str, Any] | None = None
+    answer_max_tokens: int = Field(
+        default=DEFAULT_ANSWER_MAX_TOKENS,
+        ge=MIN_ANSWER_MAX_TOKENS,
+        le=MAX_ANSWER_MAX_TOKENS,
+    )
 
 
 class SeasonForceRequest(BaseModel):
@@ -175,6 +181,7 @@ async def run_society(req: StartRequest) -> dict[str, Any]:
             agent_count=req.agent_count,
             user_prompt=prompt,
             attention_policy=policy,
+            answer_max_tokens=req.answer_max_tokens,
         )
         await runner.event_queue.put(
             SimEvent(

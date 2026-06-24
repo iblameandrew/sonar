@@ -6,6 +6,7 @@ import { AnswerModal } from "./ui/AnswerModal";
 import type { PolicyPreview, AttentionPolicy } from "./attentionPolicy";
 import type { Agent, ColonyInfo, ComparisonMetrics, ProjectCanvas, SimEvent } from "./types";
 import type { QwenStatus } from "./ui/Dashboard";
+import { saveAnswerMaxTokens } from "./storage/simSettings";
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const tickLabel = document.getElementById("tick-label")!;
@@ -349,6 +350,8 @@ async function deployColony() {
 
     const agentCount = dashboard.getAgentCount();
     const maxTicks = dashboard.getMaxTicks();
+    const answerMaxTokens = dashboard.getAnswerMaxTokens();
+    saveAnswerMaxTokens(answerMaxTokens);
     const attentionPolicy = dashboard.getAttentionPolicy();
     const started = await api<{ status?: string; goal?: string }>("/sim/society", "POST", {
       max_ticks: maxTicks,
@@ -356,6 +359,7 @@ async function deployColony() {
       agent_count: agentCount,
       prompt,
       attention_policy: attentionPolicy,
+      answer_max_tokens: answerMaxTokens,
     });
 
     startStatePolling();

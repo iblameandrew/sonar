@@ -38,3 +38,4 @@ class SimulationState(TypedDict):
     paused: bool
     inject_conflict: bool
     attention_policy: dict[str, Any]
+    answer_max_tokens: int

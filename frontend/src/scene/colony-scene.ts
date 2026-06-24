@@ -63,6 +63,29 @@ function sectorColor(sx: number, sy: number, gx: number, gy: number, t = 0.5): T
   return c;
 }
 
+interface SpawnAnim {
+  fromX: number;
+  fromY: number;
+  start: number;
+  duration: number;
+}
+
+interface AnimatedConnection {
+  line: THREE.Line;
+  mat: THREE.LineDashedMaterial;
+  birth: number;
+  pulse: number;
+  strength: number;
+  fromId: string;
+  toId: string;
+  y: number;
+}
+
+function easeOutCubic(t: number): number {
+  const p = Math.max(0, Math.min(1, t));
+  return 1 - (1 - p) ** 3;
+}
+
 export class ColonyScene {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
@@ -71,12 +94,15 @@ export class ColonyScene {
   private zoneMat: THREE.MeshStandardMaterial;
   private volWash: THREE.Mesh;
   private sectorLines: THREE.LineSegments;
+  private sectorLineMat: THREE.LineBasicMaterial;
   private agentMesh: THREE.InstancedMesh;
   private agentIndex = new Map<string, number>();
   private freeSlots: number[] = [];
   private agents = new Map<string, Agent>();
   private prevPositions = new Map<string, { x: number; y: number }>();
-  private connectionLines: THREE.Line[] = [];
+  private spawnAnim = new Map<string, SpawnAnim>();
+  private spreadWaveStart = -1;
+  private connectionLines: AnimatedConnection[] = [];
   private debateParticles: THREE.Points[] = [];
   private institutionHulls: THREE.Mesh[] = [];
   private conflictRing: THREE.Mesh | null = null;
@@ -159,10 +185,8 @@ export class ColonyScene {
     border.position.set(WORLD_EXTENT / 2, -0.08, WORLD_EXTENT / 2);
     this.scene.add(border);
 
-    this.sectorLines = new THREE.LineSegments(
-      this.buildSectorGridGeometry(),
-      new THREE.LineBasicMaterial({ color: 0x2e5c28, transparent: true, opacity: 0.22 }),
-    );
+    this.sectorLineMat = new THREE.LineBasicMaterial({ color: 0x2e5c28, transparent: true, opacity: 0.22 });
+    this.sectorLines = new THREE.LineSegments(this.buildSectorGridGeometry(), this.sectorLineMat);
     this.sectorLines.rotation.x = -Math.PI / 2;
     this.sectorLines.position.set(WORLD_EXTENT / 2, 0.02, WORLD_EXTENT / 2);
     this.scene.add(this.sectorLines);
@@ -282,11 +306,32 @@ export class ColonyScene {
   }
 
   loadAgents(agents: Agent[]): void {
+    const wasEmpty = this.agents.size === 0;
     const incoming = new Set(agents.map((a) => a.id));
+    const cx = WORLD_SIZE / 2;
+    const cy = WORLD_SIZE / 2;
+    const now = this.clock.getElapsedTime();
+
+    if (wasEmpty && agents.length > 0) {
+      this.spreadWaveStart = now;
+    }
+
     for (const id of [...this.agents.keys()]) {
       if (!incoming.has(id)) this.removeAgent(id);
     }
-    for (const a of agents) this.upsertAgent(a);
+    for (const a of agents) {
+      const isNew = !this.agents.has(a.id);
+      if (isNew && wasEmpty) {
+        const dist = Math.hypot(a.grid_x - cx, a.grid_y - cy);
+        this.spawnAnim.set(a.id, {
+          fromX: cx,
+          fromY: cy,
+          start: now + dist * 0.006,
+          duration: 0.55 + dist * 0.014,
+        });
+      }
+      this.upsertAgent(a);
+    }
   }
 
   setColonyPurpose(goal: string): void {
@@ -296,12 +341,14 @@ export class ColonyScene {
   /** Clear agents, playbook edges, and debate overlays for a fresh colony. */
   resetColony(): void {
     this.hideCellTooltip();
-    for (const line of this.connectionLines) {
-      this.scene.remove(line);
-      line.geometry.dispose();
-      (line.material as THREE.Material).dispose();
+    for (const conn of this.connectionLines) {
+      this.scene.remove(conn.line);
+      conn.line.geometry.dispose();
+      conn.mat.dispose();
     }
     this.connectionLines = [];
+    this.spawnAnim.clear();
+    this.spreadWaveStart = -1;
     for (const pts of this.debateParticles) {
       this.scene.remove(pts);
       pts.geometry.dispose();
@@ -359,6 +406,29 @@ export class ColonyScene {
     }
   }
 
+  private agentWorldPos(agent: Agent, t: number): { x: number; z: number; spreading: boolean } {
+    let gx = agent.grid_x;
+    let gy = agent.grid_y;
+    let spreading = false;
+    const anim = this.spawnAnim.get(agent.id);
+    if (anim) {
+      const p = (t - anim.start) / anim.duration;
+      if (p < 1) {
+        const eased = easeOutCubic(p);
+        gx = anim.fromX + (agent.grid_x - anim.fromX) * eased;
+        gy = anim.fromY + (agent.grid_y - anim.fromY) * eased;
+        spreading = true;
+      } else {
+        this.spawnAnim.delete(agent.id);
+      }
+    }
+    return {
+      x: gx * CELL + CELL / 2,
+      z: gy * CELL + CELL / 2,
+      spreading,
+    };
+  }
+
   upsertAgent(agent: Agent): void {
     const prev = this.prevPositions.get(agent.id);
     if (prev && (prev.x !== agent.grid_x || prev.y !== agent.grid_y)) {
@@ -372,6 +442,16 @@ export class ColonyScene {
       idx = this.freeSlots.pop();
       if (idx === undefined) return;
       this.agentIndex.set(agent.id, idx);
+      const cx = WORLD_SIZE / 2;
+      const cy = WORLD_SIZE / 2;
+      const dist = Math.hypot(agent.grid_x - cx, agent.grid_y - cy);
+      const now = this.clock.getElapsedTime();
+      this.spawnAnim.set(agent.id, {
+        fromX: cx,
+        fromY: cy,
+        start: now + dist * 0.006,
+        duration: 0.55 + dist * 0.014,
+      });
     }
 
     const sx = Math.floor(agent.grid_x / SECTOR_SIZE);
@@ -381,12 +461,14 @@ export class ColonyScene {
     this.colorHelper.copy(zone).lerp(role, 0.45);
     if (!agent.current_task_id) this.colorHelper.multiplyScalar(0.7);
 
+    const t = this.clock.getElapsedTime();
+    const pos = this.agentWorldPos(agent, t);
     const active = Boolean(agent.current_task_id);
     const stack = 1 + Math.min(agent.nouns.length, 4) * 0.12;
     const scale = (agent.role === "worker" || agent.role === "generalist" ? 0.88 : 1.05) * stack;
     const y = CELL * (0.28 + stack * 0.18);
-    this.dummy.position.set(agent.grid_x * CELL + CELL / 2, y, agent.grid_y * CELL + CELL / 2);
-    this.dummy.scale.set(1, active ? scale * 1.1 : scale, 1);
+    this.dummy.position.set(pos.x, y, pos.z);
+    this.dummy.scale.set(1, active || pos.spreading ? scale * 1.1 : scale, 1);
     this.dummy.updateMatrix();
     this.agentMesh.setMatrixAt(idx, this.dummy.matrix);
     this.agentMesh.setColorAt(idx, this.colorHelper);
@@ -411,7 +493,7 @@ export class ColonyScene {
 
   applyLayers(): void {
     this.agentMesh.visible = this.layers.agents;
-    this.connectionLines.forEach((l) => (l.visible = this.layers.connections));
+    this.connectionLines.forEach((c) => (c.line.visible = this.layers.connections));
     this.institutionHulls.forEach((m) => (m.visible = this.layers.institutions));
     this.debateParticles.forEach((p) => (p.visible = this.layers.negotiations));
     if (this.conflictRing) this.conflictRing.visible = this.layers.conflictArena;
@@ -425,22 +507,53 @@ export class ColonyScene {
     for (const [id, idx] of this.agentIndex) {
       const agent = this.agents.get(id);
       if (!agent) continue;
+      const pos = this.agentWorldPos(agent, t);
       const pulsing = (this.agentPulseUntil.get(id) ?? 0) > t;
-      const working = Boolean(agent.current_task_id) || pulsing;
+      const working = Boolean(agent.current_task_id) || pulsing || pos.spreading;
       const bob = working ? Math.sin(t * 4 + idx * 0.3) * 0.06 : 0;
       const stack = 1 + Math.min(agent.nouns.length, 4) * 0.12;
       const base = (agent.role === "worker" || agent.role === "generalist" ? 0.88 : 1.05) * stack;
       const scale = base * (pulsing ? 1.25 : working ? 1.1 : 1);
       const y = CELL * (0.28 + stack * 0.18) + bob;
-      this.dummy.position.set(agent.grid_x * CELL + CELL / 2, y, agent.grid_y * CELL + CELL / 2);
+      this.dummy.position.set(pos.x, y, pos.z);
       this.dummy.scale.set(1, scale, 1);
       this.dummy.updateMatrix();
       this.agentMesh.setMatrixAt(idx, this.dummy.matrix);
     }
     this.agentMesh.instanceMatrix.needsUpdate = true;
 
-    this.zoneMat.emissiveIntensity = 0.1 + Math.sin(t * 1.2) * 0.04;
-    (this.volWash.material as THREE.MeshBasicMaterial).opacity = 0.06 + Math.sin(t * 0.8) * 0.025;
+    for (const conn of this.connectionLines) {
+      const from = this.agents.get(conn.fromId);
+      const to = this.agents.get(conn.toId);
+      if (from && to) {
+        const fp = this.agentWorldPos(from, t);
+        const tp = this.agentWorldPos(to, t);
+        const pos = conn.line.geometry.getAttribute("position") as THREE.BufferAttribute;
+        pos.setXYZ(0, fp.x, conn.y, fp.z);
+        pos.setXYZ(1, tp.x, conn.y, tp.z);
+        pos.needsUpdate = true;
+        conn.line.computeLineDistances();
+      }
+      const age = t - conn.birth;
+      const fadeIn = Math.min(1, age * 2.5);
+      const pulse = 0.72 + Math.sin(t * 3.2 + conn.pulse) * 0.22;
+      conn.mat.opacity = (0.35 + conn.strength * 0.45) * pulse * fadeIn;
+      (conn.mat as THREE.LineDashedMaterial & { dashOffset: number }).dashOffset -=
+        0.05 * (0.6 + conn.strength);
+    }
+
+    let waveBoost = 0;
+    if (this.spreadWaveStart >= 0) {
+      const waveAge = t - this.spreadWaveStart;
+      if (waveAge < 2.8) {
+        waveBoost = Math.sin(waveAge * 4.5) * Math.max(0, 1 - waveAge / 2.8) * 0.18;
+      } else {
+        this.spreadWaveStart = -1;
+      }
+    }
+    this.zoneMat.emissiveIntensity = 0.1 + Math.sin(t * 1.2) * 0.04 + waveBoost;
+    (this.volWash.material as THREE.MeshBasicMaterial).opacity = 0.06 + Math.sin(t * 0.8) * 0.025 + waveBoost * 0.6;
+    this.sectorLineMat.opacity = 0.22 + Math.sin(t * 1.6) * 0.04 + waveBoost;
 
     this.renderer.render(this.scene, this.camera);
   }
@@ -493,30 +606,41 @@ export class ColonyScene {
     const from = this.agents.get(entry.from_id);
     const to = this.agents.get(entry.to_id);
     if (!from || !to) return;
-    if ((STRENGTH_SCALE[entry.strength] ?? 0) <= 0) return;
+    const strength = STRENGTH_SCALE[entry.strength] ?? 0;
+    if (strength <= 0) return;
     const color = KIND_COLORS[entry.kind] ?? 0xffffff;
-    const thick = 0.6 + (STRENGTH_SCALE[entry.strength] ?? 0.2) * 1.4;
-    const y = 0.85 + (STRENGTH_SCALE[entry.strength] ?? 0.15);
+    const y = 0.85 + strength * 0.35;
+    const mat = new THREE.LineDashedMaterial({
+      color,
+      dashSize: 0.32 + strength * 0.18,
+      gapSize: 0.16,
+      transparent: true,
+      opacity: 0,
+    });
     const line = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(from.grid_x * CELL + CELL / 2, y, from.grid_y * CELL + CELL / 2),
         new THREE.Vector3(to.grid_x * CELL + CELL / 2, y, to.grid_y * CELL + CELL / 2),
       ]),
-      new THREE.LineBasicMaterial({
-        color,
-        transparent: true,
-        opacity: thick,
-        linewidth: 1,
-      }),
+      mat,
     );
-    line.scale.set(1, thick, 1);
+    line.computeLineDistances();
     this.scene.add(line);
-    this.connectionLines.push(line);
+    this.connectionLines.push({
+      line,
+      mat,
+      birth: this.clock.getElapsedTime(),
+      pulse: Math.random() * Math.PI * 2,
+      strength,
+      fromId: entry.from_id,
+      toId: entry.to_id,
+      y,
+    });
     if (this.connectionLines.length > 200) {
       const old = this.connectionLines.shift()!;
-      this.scene.remove(old);
-      old.geometry.dispose();
-      (old.material as THREE.Material).dispose();
+      this.scene.remove(old.line);
+      old.line.geometry.dispose();
+      old.mat.dispose();
     }
   }
 

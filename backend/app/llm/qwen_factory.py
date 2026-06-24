@@ -585,6 +585,9 @@ class QwenLLMFactory:
         role: str,
         prompt: ChatPromptTemplate,
         variables: dict[str, Any],
+        *,
+        max_tokens: int | None = None,
+        system_suffix: str | None = None,
     ) -> str | None:
         llm = self.get_for_role(role)
         if not llm:
@@ -593,10 +596,15 @@ class QwenLLMFactory:
         start = time.time()
         try:
             messages = prompt.format_messages(**variables)
-            if config.system_prompt:
+            if config.system_prompt or system_suffix:
                 from langchain_core.messages import SystemMessage
-                messages = [SystemMessage(content=config.system_prompt)] + list(messages)
-            response = llm.invoke(messages)
+
+                system_text = config.system_prompt or ""
+                if system_suffix:
+                    system_text = f"{system_text}\n\n{system_suffix}".strip()
+                messages = [SystemMessage(content=system_text)] + list(messages)
+            caller = llm.bind(max_tokens=max_tokens) if max_tokens is not None else llm
+            response = caller.invoke(messages)
             content = str(response.content)
             inp_tok, out_tok = self._estimate_tokens(messages, content)
             self._record_usage(role, config.model, inp_tok, out_tok, start)
