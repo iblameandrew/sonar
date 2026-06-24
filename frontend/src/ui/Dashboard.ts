@@ -7,7 +7,7 @@ import {
 } from "../storage/apiKeyStorage";
 import type { Agent, ColonyInfo, ComparisonMetrics, NegotiationRound, ProjectCanvas, SimEvent } from "../types";
 import { DASHBOARD_ROLES, roleLabel } from "../agentRoles";
-import type { ColonyScene } from "../scene/ColonyScene";
+import type { ColonyScene } from "../scene/colony-scene";
 
 export interface QwenModelEntry {
   id: string;

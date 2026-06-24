@@ -1,7 +1,6 @@
 import { SSEClient } from "./sse/client";
 import { roleLabel } from "./agentRoles";
 import type { Dashboard } from "./ui/Dashboard";
-import type { ColonyScene } from "./scene/ColonyScene";
 import type { Agent, ColonyInfo, ComparisonMetrics, ProjectCanvas, SimEvent } from "./types";
 import type { QwenStatus } from "./ui/Dashboard";
 
@@ -15,7 +14,7 @@ const promptInput = document.getElementById("colony-prompt") as HTMLTextAreaElem
 const activeGoalEl = document.getElementById("active-goal")!;
 const bootErrorEl = document.getElementById("boot-error");
 
-let scene: ColonyScene | null = null;
+let scene: import("./scene/colony-scene").ColonyScene | null = null;
 let dashboard: Dashboard;
 const sse = new SSEClient();
 let colonyRefreshTick = 0;
@@ -100,7 +99,7 @@ function startRenderLoop(): void {
 async function init() {
   const { Dashboard: DashboardCtor } = await import("./ui/Dashboard");
   try {
-    const { ColonyScene: ColonySceneCtor } = await import("./scene/ColonyScene");
+    const { ColonyScene: ColonySceneCtor } = await import("./scene/colony-scene");
     scene = new ColonySceneCtor(canvas);
     dashboard = new DashboardCtor(scene);
     startRenderLoop();

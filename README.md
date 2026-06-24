@@ -296,7 +296,7 @@ colony/
 │       └── api/routes.py    # FastAPI endpoints
 ├── frontend/
 │   └── src/
-│       ├── scene/ColonyScene.ts   # Isometric Conway colony (Three.js)
+│       ├── scene/colony-scene.ts  # Isometric Conway colony (Three.js)
 │       ├── ui/Dashboard.ts      # Tabbed dashboard + colony panel
 │       └── sse/client.ts        # Live event stream
 └── docs/
@@ -335,7 +335,7 @@ cd frontend && npm run build
 curl http://localhost:8000/api/health
 ```
 
-Grid constants live in `backend/app/grid.py` and mirror `frontend/src/scene/ColonyScene.ts` (`WORLD_SIZE=96`, `TREE_SPACING=8`).
+Grid constants live in `backend/app/grid.py` and mirror `frontend/src/scene/colony-scene.ts` (`WORLD_SIZE=96`, `TREE_SPACING=8`).
 
 ---
 
