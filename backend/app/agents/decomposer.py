@@ -68,7 +68,11 @@ class Decomposer:
             },
         )
 
-        assignments = result.assignments if result else []
+        assignments = []
+        if result:
+            for asgn in result.assignments:
+                if asgn.task_id and asgn.agent_id and asgn.agent_id in agent_map:
+                    assignments.append(asgn)
         if not assignments:
             for task in pending[:2]:
                 best = self._match_agent(task, agents)

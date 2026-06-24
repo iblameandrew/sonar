@@ -45,7 +45,10 @@ T = TypeVar("T", bound=BaseModel)
 
 logger = logging.getLogger(__name__)
 
-DASHSCOPE_BASE = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+DASHSCOPE_BASE_INTL = (
+    "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+)
+DASHSCOPE_BASE_CN = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 DEFAULT_MODEL = os.getenv("QWEN_MODEL", CATALOG_DEFAULT)
 
 
@@ -81,12 +84,36 @@ class QwenLLMFactory:
         self._total_output = 0
         self._call_count = 0
         self._last_error: str = ""
+        self._auth_disabled: bool = False
+        self._key_validated: bool = False
+
+    def _is_auth_error(self, msg: str) -> bool:
+        lower = msg.lower()
+        return any(
+            k in lower
+            for k in (
+                "invalidapikey",
+                "invalid api-key",
+                "invalid api key",
+                "status_code: 401",
+                "unauthorized",
+                "authentication",
+            )
+        )
 
     def _record_llm_error(self, role: str, exc: Exception) -> None:
         msg = str(exc).strip() or exc.__class__.__name__
         self._last_error = msg
         lower = msg.lower()
-        if any(k in lower for k in ("quota", "rate limit", "insufficient", "balance", "exceeded", "429")):
+        if self._is_auth_error(msg):
+            self._auth_disabled = True
+            self._instances.clear()
+            logger.error(
+                "Qwen API key rejected [%s] — disabling LLM for this session: %s",
+                role,
+                msg,
+            )
+        elif any(k in lower for k in ("quota", "rate limit", "insufficient", "balance", "exceeded", "429")):
             logger.error("Qwen quota/rate error [%s]: %s", role, msg)
         else:
             logger.warning("Qwen call failed [%s]: %s", role, msg)
@@ -94,14 +121,50 @@ class QwenLLMFactory:
     def _api_key(self) -> str | None:
         return os.getenv("DASHSCOPE_API_KEY") or os.getenv("QWEN_API_KEY")
 
+    def _base_url(self) -> str:
+        explicit = os.getenv("DASHSCOPE_BASE_URL", "").strip()
+        if explicit:
+            return explicit.rstrip("/")
+        region = os.getenv("DASHSCOPE_REGION", "intl").strip().lower()
+        if region in {"cn", "china", "domestic"}:
+            return DASHSCOPE_BASE_CN
+        return DASHSCOPE_BASE_INTL
+
     def is_configured(self) -> bool:
-        return bool(self._api_key())
+        return bool(self._api_key()) and not self._auth_disabled
 
     def set_api_key(self, key: str) -> None:
         os.environ["DASHSCOPE_API_KEY"] = key.strip()
         os.environ.pop("QWEN_API_KEY", None)
         self._instances.clear()
         self._last_error = ""
+        self._auth_disabled = False
+        self._key_validated = False
+
+    def validate_api_key(self) -> tuple[bool, str]:
+        """Probe DashScope with a minimal completion."""
+        if not self._api_key():
+            return False, "No API key set"
+        llm = self._build_llm(RoleConfig(model=QWEN3_6_FLASH, max_tokens=8, temperature=0.0))
+        if not llm:
+            return False, "Could not build LLM client"
+        try:
+            from langchain_core.messages import HumanMessage
+
+            llm.invoke([HumanMessage(content="ping")])
+            self._auth_disabled = False
+            self._key_validated = True
+            self._last_error = ""
+            return True, f"API key accepted ({self._base_url()})"
+        except Exception as exc:
+            self._record_llm_error("validate", exc)
+            if self._auth_disabled:
+                return (
+                    False,
+                    "Invalid DashScope API key — use a key from "
+                    "modelstudio.console.alibabacloud.com (intl) or dashscope.aliyun.com (CN)",
+                )
+            return False, str(exc)
 
     def masked_api_key(self) -> str:
         key = self._api_key()
@@ -185,24 +248,18 @@ class QwenLLMFactory:
         if not api_key:
             return None
 
-        try:
-            from langchain_community.chat_models.tongyi import ChatTongyi
-            return ChatTongyi(
-                model=config.model,
-                dashscope_api_key=api_key,
-                temperature=config.temperature,
-                top_p=config.top_p,
-                max_tokens=config.max_tokens,
-            )
-        except Exception:
-            from langchain_openai import ChatOpenAI
-            return ChatOpenAI(
-                model=config.model,
-                api_key=api_key,
-                base_url=DASHSCOPE_BASE,
-                temperature=config.temperature,
-                max_tokens=config.max_tokens,
-            )
+        from langchain_openai import ChatOpenAI
+
+        # Intl workspace keys use OpenAI-compatible chat completions, not the
+        # domestic ChatTongyi SDK (dashscope.aliyuncs.com).
+        return ChatOpenAI(
+            model=config.model,
+            api_key=api_key,
+            base_url=self._base_url(),
+            temperature=config.temperature,
+            max_tokens=config.max_tokens,
+            extra_body={"enable_thinking": False},
+        )
 
     def get_config(self, role: str) -> RoleConfig:
         return self._configs.get(role, self._configs["default"])
@@ -217,6 +274,8 @@ class QwenLLMFactory:
         self._instances.pop(role, None)
 
     def get_for_role(self, role: str) -> BaseChatModel | None:
+        if self._auth_disabled or not self._api_key():
+            return None
         if role in self._instances:
             return self._instances[role]
         config = self._configs.get(role, self._configs["default"])
@@ -235,6 +294,19 @@ class QwenLLMFactory:
         out = len(output) // 4
         return max(inp, 1), max(out, 1)
 
+    def _ensure_json_hint(self, messages: list[BaseMessage]) -> list[BaseMessage]:
+        """DashScope intl requires the word 'json' when using structured output."""
+        if not messages:
+            return messages
+        if any("json" in (getattr(m, "content", "") or "").lower() for m in messages):
+            return messages
+        from langchain_core.messages import HumanMessage
+
+        last = messages[-1]
+        content = str(getattr(last, "content", "") or "")
+        hinted = HumanMessage(content=f"{content}\n\nRespond in JSON.")
+        return [*messages[:-1], hinted]
+
     def invoke_structured(
         self,
         role: str,
@@ -252,6 +324,7 @@ class QwenLLMFactory:
             if config.system_prompt and messages:
                 from langchain_core.messages import SystemMessage
                 messages = [SystemMessage(content=config.system_prompt)] + list(messages)
+            messages = self._ensure_json_hint(messages)
             chain = llm.with_structured_output(output_model)
             result: T = chain.invoke(messages)
             out_str = result.model_dump_json()
@@ -279,6 +352,7 @@ class QwenLLMFactory:
             if config.system_prompt and messages:
                 from langchain_core.messages import SystemMessage
                 messages = [SystemMessage(content=config.system_prompt)] + list(messages)
+            messages = self._ensure_json_hint(messages)
             chain = llm.with_structured_output(output_model)
             result: T = await chain.ainvoke(messages)
             out_str = result.model_dump_json()
@@ -360,17 +434,25 @@ class QwenLLMFactory:
             }
 
     def get_status(self) -> dict[str, Any]:
+        has_key = bool(self._api_key())
         configured = self.is_configured()
         status_message = (
             "All agents powered by Qwen Cloud ✓"
             if configured
             else "Set your DashScope API key in the dashboard"
         )
-        if self._last_error:
+        if has_key and self._auth_disabled:
+            status_message = (
+                "API key rejected by DashScope — running heuristic agents. "
+                "Get a key at modelstudio.console.alibabacloud.com"
+            )
+        elif self._last_error and not configured:
             status_message = f"Qwen error: {self._last_error}"
         return {
             "provider": "Qwen Cloud (DashScope)",
             "configured": configured,
+            "key_valid": self._key_validated and not self._auth_disabled,
+            "base_url": self._base_url(),
             "api_key_masked": self.masked_api_key(),
             "last_error": self._last_error,
             "status_message": status_message,

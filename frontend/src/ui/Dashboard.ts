@@ -11,10 +11,10 @@ export interface QwenModelEntry {
 }
 
 const FALLBACK_MODELS: QwenModelEntry[] = [
-  { id: "qwen3.6-flash-2026-04-02", label: "Qwen3.6 Flash", category: "fast", best_for: "Default for all roles" },
-  { id: "qwen3.7-max-2026-06-08", label: "Qwen3.7 Max", category: "flagship", best_for: "Reasoning" },
-  { id: "qwen3.7-plus-2026-06-08", label: "Qwen3.7 Plus", category: "balanced", best_for: "General use" },
-  { id: "qwen3.6-plus-2026-04-02", label: "Qwen3.6 Plus", category: "balanced", best_for: "Balanced agents" },
+  { id: "qwen3.6-flash", label: "Qwen3.6 Flash", category: "fast", best_for: "Default for all roles" },
+  { id: "qwen3.7-max", label: "Qwen3.7 Max", category: "flagship", best_for: "Reasoning" },
+  { id: "qwen3.7-plus", label: "Qwen3.7 Plus", category: "balanced", best_for: "General use" },
+  { id: "qwen3.6-plus", label: "Qwen3.6 Plus", category: "balanced", best_for: "Balanced agents" },
   { id: "qwen2.5-coder-32b-instruct", label: "Qwen2.5 Coder 32B", category: "coder", best_for: "Code" },
 ];
 
@@ -30,6 +30,8 @@ const CATEGORY_LABELS: Record<string, string> = {
 export interface QwenStatus {
   provider: string;
   configured: boolean;
+  key_valid?: boolean;
+  validation_message?: string;
   api_key_masked: string;
   last_error?: string;
   status_message: string;
@@ -125,10 +127,22 @@ export class Dashboard {
 
     const status: QwenStatus = await res.json();
     this.renderQwen(status);
-    saveApiKey(key);
-    this.apiInput.placeholder = status.api_key_masked
-      ? `Saved ${status.api_key_masked} — paste to replace`
-      : "sk-… DashScope API key";
+    if (status.key_valid) {
+      saveApiKey(key);
+      this.apiInput.placeholder = status.api_key_masked
+        ? `Saved ${status.api_key_masked} — paste to replace`
+        : "sk-… DashScope API key";
+    } else {
+      const msg = status.validation_message ?? status.last_error ?? "Invalid API key";
+      this.logEvent({
+        type: "qwen_auth_failed",
+        tick: 0,
+        payload: { message: msg },
+      });
+      if (!opts?.silent) {
+        alert(`DashScope rejected this API key.\n\n${msg}\n\nSimulation will use heuristic agents until you connect a valid key.`);
+      }
+    }
 
     if (!opts?.silent) this.switchTab("settings");
     return status;
@@ -151,14 +165,14 @@ export class Dashboard {
   async ensureApiKey(): Promise<boolean> {
     const res = await fetch("/api/qwen/status");
     const status: QwenStatus = await res.json();
-    if (status.configured) {
+    if (status.configured && status.key_valid !== false) {
       this.renderQwen(status);
       return true;
     }
     const stored = getStoredApiKey();
     if (!stored) return false;
     const restored = await this.submitApiKey(stored, { silent: true });
-    return Boolean(restored?.configured);
+    return Boolean(restored?.configured && restored?.key_valid);
   }
 
   private initLayers(): void {
@@ -297,7 +311,7 @@ export class Dashboard {
       <div class="metric-row"><span>Agents</span><span>${info.agent_count}</span></div>
       <div class="metric-row"><span>Grid</span><span>${info.world_size}×${info.world_size}</span></div>
       <div class="metric-row"><span>Walkable</span><span>${info.walkable_cells.toLocaleString()}</span></div>
-      <div class="metric-row"><span>Life cells</span><span>${sceneStats?.lifeAlive.toLocaleString() ?? "—"}</span></div>
+      <div class="metric-row"><span>On task</span><span>${sceneStats?.activeAgents?.toLocaleString() ?? "—"}</span></div>
     `;
     const sectors = info.sectors ?? sceneStats?.sectors ?? {};
     const sorted = Object.entries(sectors).sort((a, b) => b[1] - a[1]).slice(0, 12);
@@ -327,7 +341,7 @@ export class Dashboard {
         <div class="metric-row"><span>Agents</span><span>${stats.agentCount}</span></div>
         <div class="metric-row"><span>Grid</span><span>96×96</span></div>
         <div class="metric-row"><span>Walkable</span><span>${stats.walkableCells.toLocaleString()}</span></div>
-        <div class="metric-row"><span>Life cells</span><span>${stats.lifeAlive.toLocaleString()}</span></div>
+        <div class="metric-row"><span>On task</span><span>${stats.activeAgents.toLocaleString()}</span></div>
       `;
       const sorted = Object.entries(stats.sectors).sort((a, b) => b[1] - a[1]).slice(0, 12);
       this.sectorEl.innerHTML = sorted

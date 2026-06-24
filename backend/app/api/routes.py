@@ -62,7 +62,12 @@ async def qwen_usage() -> dict[str, Any]:
 @router.post("/qwen/api-key")
 async def qwen_set_api_key(req: QwenApiKeyRequest) -> dict[str, Any]:
     qwen_factory.set_api_key(req.api_key)
-    return qwen_factory.get_status()
+    valid, message = await asyncio.to_thread(qwen_factory.validate_api_key)
+    return {
+        **qwen_factory.get_status(),
+        "key_valid": valid,
+        "validation_message": message,
+    }
 
 
 @router.post("/qwen/configure")

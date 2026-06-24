@@ -224,6 +224,18 @@ class SimulationRunner:
                 raise RuntimeError("No simulation state")
             state = self.state
             thread_id = self.thread_id
+            tick = state["tick"]
+
+        await self.event_queue.put(
+            SimEvent(
+                type="tick_started",
+                tick=tick,
+                payload={
+                    "max_ticks": state["max_ticks"],
+                    "agent_count": len(state["agents"]),
+                },
+            )
+        )
 
         config = {"configurable": {"thread_id": thread_id}}
         result = await self.graph.ainvoke(state, config)

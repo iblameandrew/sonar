@@ -40,17 +40,13 @@ const ZONE_PALETTES: ZonePalette[] = [
 
 export interface ColonyStats {
   agentCount: number;
-  lifeAlive: number;
+  activeAgents: number;
   walkableCells: number;
   sectors: Record<string, number>;
 }
 
 function sectorId(x: number, y: number): string {
   return `s${Math.floor(x / SECTOR_SIZE)}-${Math.floor(y / SECTOR_SIZE)}`;
-}
-
-function gridIndex(x: number, y: number): number {
-  return y * WORLD_SIZE + x;
 }
 
 function sectorPalette(sx: number, sy: number): ZonePalette {
@@ -70,8 +66,6 @@ export class ColonyScene {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
   camera: THREE.OrthographicCamera;
-  private lifeGrid: Uint8Array;
-  private lifeMesh: THREE.InstancedMesh;
   private zoneMesh: THREE.Mesh;
   private zoneMat: THREE.MeshStandardMaterial;
   private volWash: THREE.Mesh;
@@ -82,11 +76,10 @@ export class ColonyScene {
   private agents = new Map<string, Agent>();
   private prevPositions = new Map<string, { x: number; y: number }>();
   private connectionLines: THREE.Line[] = [];
-  private colonyMeshes: THREE.Mesh[] = [];
   private debateParticles: THREE.Points[] = [];
   private conflictRing: THREE.Mesh | null = null;
+  private agentPulseUntil = new Map<string, number>();
   private clock = new THREE.Clock();
-  private lifeTick = 0;
   private panX = 0;
   private panZ = 0;
   private zoom = 1;
@@ -168,33 +161,13 @@ export class ColonyScene {
     this.sectorLines.position.set(WORLD_EXTENT / 2, 0.02, WORLD_EXTENT / 2);
     this.scene.add(this.sectorLines);
 
-    this.lifeGrid = new Uint8Array(WORLD_SIZE * WORLD_SIZE);
-    this.seedLifeGrid();
-
-    const lifeGeo = new THREE.BoxGeometry(CELL * 0.72, CELL * 0.28, CELL * 0.72);
-    const lifeMat = new THREE.MeshStandardMaterial({
-      color: ECO.moss,
-      emissive: ECO.mossGlow,
-      emissiveIntensity: 0.5,
-      roughness: 0.55,
-      vertexColors: true,
-    });
-    this.lifeMesh = new THREE.InstancedMesh(lifeGeo, lifeMat, WORLD_SIZE * WORLD_SIZE);
-    this.lifeMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.lifeMesh.instanceColor = new THREE.InstancedBufferAttribute(
-      new Float32Array(WORLD_SIZE * WORLD_SIZE * 3),
-      3,
-    );
-    this.updateLifeMesh();
-    this.scene.add(this.lifeMesh);
-
-    const agentGeo = new THREE.BoxGeometry(CELL * 0.72, CELL * 1.05, CELL * 0.72);
+    const agentGeo = new THREE.SphereGeometry(CELL * 0.42, 10, 10);
     const agentMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       emissive: 0xffffff,
-      emissiveIntensity: 0.48,
-      roughness: 0.5,
-      metalness: 0.05,
+      emissiveIntensity: 0.55,
+      roughness: 0.35,
+      metalness: 0.08,
       vertexColors: true,
     });
     this.agentMesh = new THREE.InstancedMesh(agentGeo, agentMat, MAX_AGENTS);
@@ -211,7 +184,6 @@ export class ColonyScene {
     this.scene.add(this.agentMesh);
 
     this.layers = {
-      lifeGrid: true,
       agents: true,
       connections: true,
       negotiations: true,
@@ -260,7 +232,7 @@ export class ColonyScene {
         if (this.layers.loss_agent) this.flashBackdrop(0x2a1018);
         break;
       case "colony_voxel":
-        if (this.layers.colony) this.placeColonyVoxel(p as { x: number; y: number; color: string });
+        if (this.layers.colony) this.signalAgentAtCell(p.x as number, p.y as number);
         break;
       case "agent_birth":
         if (this.layers.birthDeath) {
@@ -289,30 +261,31 @@ export class ColonyScene {
   }
 
   loadAgents(agents: Agent[]): void {
+    const incoming = new Set(agents.map((a) => a.id));
+    for (const id of [...this.agents.keys()]) {
+      if (!incoming.has(id)) this.removeAgent(id);
+    }
     for (const a of agents) this.upsertAgent(a);
   }
 
-  loadColonyVoxels(voxels: { x: number; y: number; color: string }[]): void {
-    for (const v of voxels) this.placeColonyVoxel(v);
-  }
+  /** Blueprint voxels are metadata only — terrain shows agents, not decorative blocks. */
+  loadColonyVoxels(_voxels: { x: number; y: number; color: string }[]): void {}
 
   getAgents(): Agent[] {
     return [...this.agents.values()];
   }
 
   getColonyStats(): ColonyStats {
-    let lifeAlive = 0;
-    for (let i = 0; i < this.lifeGrid.length; i++) {
-      if (this.lifeGrid[i]) lifeAlive++;
-    }
+    let activeAgents = 0;
     const sectors: Record<string, number> = {};
     for (const a of this.agents.values()) {
+      if (a.current_task_id) activeAgents++;
       const sid = sectorId(a.grid_x, a.grid_y);
       sectors[sid] = (sectors[sid] ?? 0) + 1;
     }
     return {
       agentCount: this.agents.size,
-      lifeAlive,
+      activeAgents,
       walkableCells: WORLD_SIZE * WORLD_SIZE,
       sectors,
     };
@@ -325,12 +298,6 @@ export class ColonyScene {
         const c = sectorColor(sx, sy, sx * SECTOR_SIZE, sy * SECTOR_SIZE, 0.6);
         ctx.fillStyle = `rgb(${Math.floor(c.r * 255)},${Math.floor(c.g * 255)},${Math.floor(c.b * 255)})`;
         ctx.fillRect(sx * SECTOR_SIZE * scale, sy * SECTOR_SIZE * scale, SECTOR_SIZE * scale, SECTOR_SIZE * scale);
-      }
-    }
-    ctx.fillStyle = "rgba(102,255,170,0.25)";
-    for (let y = 0; y < WORLD_SIZE; y += 2) {
-      for (let x = 0; x < WORLD_SIZE; x += 2) {
-        if (this.lifeGrid[gridIndex(x, y)]) ctx.fillRect(x * scale, y * scale, scale, scale);
       }
     }
     for (const a of this.agents.values()) {
@@ -361,9 +328,12 @@ export class ColonyScene {
     const zone = sectorColor(sx, sy, agent.grid_x, agent.grid_y, 0.65);
     const role = new THREE.Color(ROLE_COLORS[agent.role] ?? 0x4dd0e1);
     this.colorHelper.copy(zone).lerp(role, 0.45);
+    if (!agent.current_task_id) this.colorHelper.multiplyScalar(0.7);
 
-    this.dummy.position.set(agent.grid_x * CELL + CELL / 2, CELL * 0.45, agent.grid_y * CELL + CELL / 2);
-    this.dummy.scale.setScalar(1);
+    const active = Boolean(agent.current_task_id);
+    const scale = agent.role === "worker" || agent.role === "generalist" ? 0.9 : 1.05;
+    this.dummy.position.set(agent.grid_x * CELL + CELL / 2, CELL * 0.38, agent.grid_y * CELL + CELL / 2);
+    this.dummy.scale.setScalar(active ? scale * 1.08 : scale);
     this.dummy.updateMatrix();
     this.agentMesh.setMatrixAt(idx, this.dummy.matrix);
     this.agentMesh.setColorAt(idx, this.colorHelper);
@@ -387,27 +357,36 @@ export class ColonyScene {
   }
 
   applyLayers(): void {
-    this.lifeMesh.visible = this.layers.lifeGrid;
     this.agentMesh.visible = this.layers.agents;
     this.connectionLines.forEach((l) => (l.visible = this.layers.connections));
-    this.colonyMeshes.forEach((m) => (m.visible = this.layers.colony));
     this.debateParticles.forEach((p) => (p.visible = this.layers.negotiations));
     if (this.conflictRing) this.conflictRing.visible = this.layers.conflictArena;
   }
 
   render(): void {
     const t = this.clock.getElapsedTime();
-    this.lifeTick++;
-    if (this.lifeTick % 14 === 0 && this.layers.lifeGrid) {
-      this.stepConway();
-      this.updateLifeMesh();
-    }
-
     const agentMat = this.agentMesh.material as THREE.MeshStandardMaterial;
-    agentMat.emissiveIntensity = 0.4 + Math.sin(t * 2.5) * 0.12;
+    agentMat.emissiveIntensity = 0.38 + Math.sin(t * 2.5) * 0.08;
 
-    const lifeMat = this.lifeMesh.material as THREE.MeshStandardMaterial;
-    lifeMat.emissiveIntensity = 0.42 + Math.sin(t * 2) * 0.14;
+    for (const [id, idx] of this.agentIndex) {
+      const agent = this.agents.get(id);
+      if (!agent) continue;
+      const pulsing = (this.agentPulseUntil.get(id) ?? 0) > t;
+      const working = Boolean(agent.current_task_id) || pulsing;
+      const bob = working ? Math.sin(t * 4 + idx * 0.3) * 0.06 : 0;
+      const scale =
+        (agent.role === "worker" || agent.role === "generalist" ? 0.9 : 1.05) *
+        (pulsing ? 1.25 : working ? 1.08 : 1);
+      this.dummy.position.set(
+        agent.grid_x * CELL + CELL / 2,
+        CELL * 0.38 + bob,
+        agent.grid_y * CELL + CELL / 2,
+      );
+      this.dummy.scale.setScalar(scale);
+      this.dummy.updateMatrix();
+      this.agentMesh.setMatrixAt(idx, this.dummy.matrix);
+    }
+    this.agentMesh.instanceMatrix.needsUpdate = true;
 
     this.zoneMat.emissiveIntensity = 0.1 + Math.sin(t * 1.2) * 0.04;
     (this.volWash.material as THREE.MeshBasicMaterial).opacity = 0.06 + Math.sin(t * 0.8) * 0.025;
@@ -448,56 +427,15 @@ export class ColonyScene {
     return new THREE.BufferGeometry().setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
   }
 
-  private seedLifeGrid(): void {
-    for (let i = 0; i < WORLD_SIZE * WORLD_SIZE; i++) {
-      this.lifeGrid[i] = Math.random() < 0.12 ? 1 : 0;
-    }
-  }
-
-  private stepConway(): void {
-    const next = new Uint8Array(WORLD_SIZE * WORLD_SIZE);
-    for (let y = 0; y < WORLD_SIZE; y++) {
-      for (let x = 0; x < WORLD_SIZE; x++) {
-        let n = 0;
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            if (!dx && !dy) continue;
-            const nx = x + dx;
-            const ny = y + dy;
-            if (nx >= 0 && ny >= 0 && nx < WORLD_SIZE && ny < WORLD_SIZE) {
-              n += this.lifeGrid[gridIndex(nx, ny)];
-            }
-          }
-        }
-        const alive = this.lifeGrid[gridIndex(x, y)];
-        next[gridIndex(x, y)] = alive ? (n === 2 || n === 3 ? 1 : 0) : n === 3 ? 1 : 0;
+  private signalAgentAtCell(x: number, y: number): void {
+    for (const a of this.agents.values()) {
+      if (a.grid_x === x && a.grid_y === y) {
+        this.pulseAgent(a.id);
+        return;
       }
     }
-    this.lifeGrid = next;
-  }
-
-  private updateLifeMesh(): void {
-    let i = 0;
-    for (let y = 0; y < WORLD_SIZE; y++) {
-      for (let x = 0; x < WORLD_SIZE; x++) {
-        const alive = this.lifeGrid[gridIndex(x, y)] === 1;
-        if (alive) {
-          this.dummy.position.set(x * CELL + CELL / 2, CELL * 0.18, y * CELL + CELL / 2);
-          this.dummy.rotation.set(0, 0, 0);
-          this.dummy.scale.setScalar(1);
-          this.colorHelper.setHex(ECO.mossGlow);
-          this.lifeMesh.setColorAt(i, this.colorHelper);
-        } else {
-          this.dummy.position.set(0, -10, 0);
-          this.dummy.scale.setScalar(0.001);
-        }
-        this.dummy.updateMatrix();
-        this.lifeMesh.setMatrixAt(i, this.dummy.matrix);
-        i++;
-      }
-    }
-    this.lifeMesh.instanceMatrix.needsUpdate = true;
-    if (this.lifeMesh.instanceColor) this.lifeMesh.instanceColor.needsUpdate = true;
+    const architect = [...this.agents.values()].find((a) => a.role === "voxel_architect");
+    if (architect) this.pulseAgent(architect.id);
   }
 
   private addConnection(entry: DependencyEntry): void {
@@ -521,17 +459,6 @@ export class ColonyScene {
       old.geometry.dispose();
       (old.material as THREE.Material).dispose();
     }
-  }
-
-  private placeColonyVoxel(v: { x: number; y: number; color: string }): void {
-    const col = new THREE.Color(v.color);
-    const mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(CELL * 0.8, CELL * 1.2, CELL * 0.8),
-      new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.55, roughness: 0.35 }),
-    );
-    mesh.position.set(v.x * CELL, CELL * 0.6, v.y * CELL);
-    this.scene.add(mesh);
-    this.colonyMeshes.push(mesh);
   }
 
   private showDebate(fromId: string, toId: string): void {
@@ -565,15 +492,8 @@ export class ColonyScene {
   }
 
   private pulseAgent(id: string): void {
-    const idx = this.agentIndex.get(id);
-    const agent = this.agents.get(id);
-    if (idx === undefined || !agent) return;
-    this.dummy.position.set(agent.grid_x * CELL + CELL / 2, CELL * 0.8, agent.grid_y * CELL + CELL / 2);
-    this.dummy.scale.setScalar(1.3);
-    this.dummy.updateMatrix();
-    this.agentMesh.setMatrixAt(idx, this.dummy.matrix);
-    this.agentMesh.instanceMatrix.needsUpdate = true;
-    setTimeout(() => this.upsertAgent(agent), 180);
+    if (!this.agents.has(id)) return;
+    this.agentPulseUntil.set(id, this.clock.getElapsedTime() + 0.55);
   }
 
   private flashConflictArena(): void {

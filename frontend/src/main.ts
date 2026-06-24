@@ -93,6 +93,9 @@ function wireSseHandlers(): void {
       setDeployButtonsActive(false);
       dashboard.switchTab("activity");
     }
+    if (event.type === "tick_started") {
+      activeGoalEl.textContent = `Tick ${event.tick} / ${event.payload.max_ticks ?? "?"} — agents computing…`;
+    }
     if (event.tick !== undefined) tickLabel.textContent = `Tick ${event.tick}`;
     if (event.type === "phase_change") phaseLabel.textContent = String(event.payload.design_phase ?? "?");
     if (event.type === "auditor_regret") regretLabel.textContent = `Regret ${(event.payload.regret as number).toFixed(2)}`;

@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from app.roles import ATTENTION_AGENT
 from app.llm.qwen_factory import qwen_factory
-from app.models.agent import DependencyEntry, QualitativeAgent
+from app.models.agent import DependencyEntry, DependencyKind, QualitativeAgent
 
 DIMENSIONS = ["sustenance", "prestige", "kinship", "conflict", "craft", "ritual"]
 
@@ -91,6 +91,58 @@ WORKER_ROLES = frozenset({"worker", "generalist"})
 MAX_ATTENTION_PAIRS = 96
 
 
+VALID_KINDS = {
+    "economic", "kinship", "prestige", "conflict", "sustenance",
+    "craft", "ritual", "collaboration", "negotiation",
+}
+VALID_DISTANCES = {"near", "mid", "far"}
+VALID_STRENGTHS = {"none", "low", "med", "high"}
+
+
+def _coerce_kind(raw: str, fallback: str) -> DependencyKind:
+    key = (raw or "").strip().lower().replace(" ", "_").replace("-", "_")
+    if key in VALID_KINDS:
+        return key  # type: ignore[return-value]
+    for token in VALID_KINDS:
+        if token in key:
+            return token  # type: ignore[return-value]
+    fb = fallback if fallback in VALID_KINDS else "collaboration"
+    return fb  # type: ignore[return-value]
+
+
+def _coerce_text(raw: str | list[str] | None, fallback: str = "") -> str:
+    if isinstance(raw, list):
+        return str(raw[0]) if raw else fallback
+    return str(raw or fallback)
+
+
+def _entry_from_judgment(
+    result: AttentionJudgment,
+    agent_a: QualitativeAgent,
+    agent_b: QualitativeAgent,
+    tick: int,
+    season_weight: float,
+    dominant_kind: str,
+) -> DependencyEntry | None:
+    strength = (result.strength or "").strip().lower()
+    if strength not in VALID_STRENGTHS or strength == "none":
+        return None
+    distance = (result.qualitative_distance or "mid").strip().lower()
+    if distance not in VALID_DISTANCES:
+        distance = "mid"
+    return DependencyEntry(
+        from_id=agent_a.id,
+        to_id=agent_b.id,
+        kind=_coerce_kind(result.kind, dominant_kind),
+        verb_basis=_coerce_text(result.verb_basis, agent_a.verbs[0] if agent_a.verbs else "observe"),
+        qualitative_distance=distance,  # type: ignore[arg-type]
+        strength=strength,  # type: ignore[arg-type]
+        rationale=result.rationale or "LLM attention judgment",
+        season_weight=season_weight,
+        tick=tick,
+    )
+
+
 class AttentionAgent:
     def __init__(self, max_concurrency: int = 8) -> None:
         self.max_concurrency = max_concurrency
@@ -155,16 +207,12 @@ class AttentionAgent:
                 "b_verbs": agent_b.verbs, "b_nouns": agent_b.nouns, "b_adjectives": agent_b.adjectives,
             },
         )
-        if result and result.strength != "none":
-            return DependencyEntry(
-                from_id=agent_a.id, to_id=agent_b.id,
-                kind=result.kind,  # type: ignore[arg-type]
-                verb_basis=result.verb_basis,
-                qualitative_distance=result.qualitative_distance,  # type: ignore[arg-type]
-                strength=result.strength,  # type: ignore[arg-type]
-                rationale=result.rationale,
-                season_weight=season_weight, tick=tick,
+        if result:
+            entry = _entry_from_judgment(
+                result, agent_a, agent_b, tick, season_weight, dominant_kind,
             )
+            if entry:
+                return entry
 
         return _heuristic_judge(agent_a, agent_b, tick, season_weight, temperature, dominant_kind)
 

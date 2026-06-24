@@ -85,7 +85,6 @@ export interface SimEvent {
 }
 
 export interface LayerVisibility {
-  lifeGrid: boolean;
   agents: boolean;
   connections: boolean;
   negotiations: boolean;

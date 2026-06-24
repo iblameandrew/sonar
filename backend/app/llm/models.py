@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-# Pinned releases for reproducible runs
-QWEN3_7_MAX = "qwen3.7-max-2026-06-08"
-QWEN3_7_PLUS = "qwen3.7-plus-2026-06-08"
-QWEN3_6_PLUS = "qwen3.6-plus-2026-04-02"
-QWEN3_6_FLASH = "qwen3.6-flash-2026-04-02"
-QWEN3_5_FLASH = "qwen3.5-flash-2026-04-02"
+# DashScope International compatible-mode model IDs (short names)
+QWEN3_7_MAX = "qwen3.7-max"
+QWEN3_7_PLUS = "qwen3.7-plus"
+QWEN3_6_PLUS = "qwen3.6-plus"
+QWEN3_6_FLASH = "qwen3.6-flash"
+QWEN3_5_FLASH = "qwen3.5-flash"
 QWEN3_VL_PLUS = "qwen3-vl-plus"
 QWEN3_VL_MAX = "qwen3-vl-max"
 QWEN_CODER = "qwen2.5-coder-32b-instruct"

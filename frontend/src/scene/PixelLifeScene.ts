@@ -128,7 +128,7 @@ export class PixelLifeScene {
     this.scene.add(this.lifeMeshes);
 
     this.layers = {
-      lifeGrid: true, agents: true, connections: true, negotiations: true,
+      agents: true, connections: true, negotiations: true,
       institutions: true, colony: true, conflictArena: true, metrics: true,
       birthDeath: true, attention_agent: true, loss_agent: true, gradient_descent_agent: true,
       residual_flow_agent: true, feed_forward_agent: true,
@@ -244,7 +244,7 @@ export class PixelLifeScene {
   }
 
   applyLayers(): void {
-    this.lifeMeshes.visible = this.layers.lifeGrid;
+    this.lifeMeshes.visible = false;
     this.agentVisuals.forEach((v) => { v.group.visible = this.layers.agents; v.glow.visible = this.layers.agents; });
     this.connectionLines.forEach((l) => (l.visible = this.layers.connections));
     this.colonyMeshes.forEach((m) => (m.visible = this.layers.colony));
@@ -257,7 +257,7 @@ export class PixelLifeScene {
     this.controls.update();
 
     this.lifeTick++;
-    if (this.lifeTick % 10 === 0 && this.layers.lifeGrid) {
+    if (false) {
       this.stepConway();
       this.updateLifeMesh();
     }
