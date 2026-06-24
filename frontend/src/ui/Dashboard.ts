@@ -5,6 +5,7 @@ import {
   loadPolicyLocal,
   normalizePolicy,
   savePolicyLocal,
+  withApiRetry,
   type AttentionFunction,
   type AttentionHeadConfig,
   type AttentionPolicy,
@@ -111,6 +112,8 @@ export class Dashboard {
   private catalogue: AttentionFunction[] = [];
   private policy: AttentionPolicy = { heads: {} };
   private headCounter = 0;
+  private attentionReady = false;
+  private attentionLoadPromise: Promise<boolean> | null = null;
 
   constructor(private scene?: ColonyScene) {
     this.metricsEl = document.getElementById("metrics-content")!;
@@ -171,17 +174,39 @@ export class Dashboard {
     return this.policy;
   }
 
-  private async initAttentionPolicy(): Promise<void> {
+  /** Load or retry attention catalogue — safe to call after backend comes online. */
+  ensureAttentionPolicyLoaded(): Promise<boolean> {
+    if (this.attentionReady) return Promise.resolve(true);
+    if (this.attentionLoadPromise) return this.attentionLoadPromise;
+    this.attentionLoadPromise = this.loadAttentionPolicy().finally(() => {
+      this.attentionLoadPromise = null;
+    });
+    return this.attentionLoadPromise;
+  }
+
+  private async loadAttentionPolicy(): Promise<boolean> {
     try {
-      this.catalogue = await fetchCatalogue();
+      this.policyPreviewEl.textContent = "Loading attention catalogue…";
+      this.catalogue = await withApiRetry(() => fetchCatalogue());
       const stored = loadPolicyLocal();
-      this.policy = stored ?? (await fetchDefaultPolicy());
+      this.policy = stored ?? (await withApiRetry(() => fetchDefaultPolicy()));
       this.headCounter = Object.keys(this.policy.heads).length;
       this.renderAttentionHeads();
       await this.refreshPolicyPreview();
-    } catch {
-      this.policyPreviewEl.textContent = "Could not load attention catalogue.";
+      this.attentionReady = true;
+      return true;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      this.policyPreviewEl.textContent =
+        `Could not load attention catalogue (${msg}). Retrying when the API is reachable…`;
+      this.activePolicyEl.textContent =
+        "Backend not ready — ensure API is running on :8001 and refresh, or wait for auto-retry.";
+      return false;
     }
+  }
+
+  private async initAttentionPolicy(): Promise<void> {
+    void this.ensureAttentionPolicyLoaded();
 
     document.getElementById("btn-add-head")?.addEventListener("click", () => {
       this.headCounter += 1;

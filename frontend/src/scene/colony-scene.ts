@@ -10,6 +10,16 @@ export const MAX_AGENTS = 2048;
 const CELL = 1;
 const WORLD_EXTENT = WORLD_SIZE * CELL;
 const SECTOR_COUNT = Math.floor(WORLD_SIZE / SECTOR_SIZE);
+const AMBIENT_BUBBLE_COUNT = 96;
+const IDLE_ALIVE_PULSE = 0.62;
+const COMPUTE_ALIVE_PULSE = 1.0;
+const CA_SIZE = 64;
+const CA_CELLS = CA_SIZE * CA_SIZE;
+const CA_CELL = WORLD_EXTENT / CA_SIZE;
+const CA_IDLE_HZ = 7;
+const CA_COMPUTE_HZ = 14;
+const TREE_MARGIN = 4;
+const TREE_SPACING = 8;
 
 const ECO = {
   sky: 0x87ceeb,
@@ -86,6 +96,22 @@ function easeOutCubic(t: number): number {
   return 1 - (1 - p) ** 3;
 }
 
+function isTreeWorld(wx: number, wy: number): boolean {
+  if (wx < TREE_MARGIN || wy < TREE_MARGIN || wx >= WORLD_SIZE - TREE_MARGIN || wy >= WORLD_SIZE - TREE_MARGIN) {
+    return true;
+  }
+  const lx = wx - TREE_MARGIN;
+  const ly = wy - TREE_MARGIN;
+  return lx % TREE_SPACING === 0 && ly % TREE_SPACING === 0;
+}
+
+function caWorldCoord(cx: number, cy: number): { wx: number; wy: number } {
+  return {
+    wx: Math.min(WORLD_SIZE - 1, Math.floor(((cx + 0.5) / CA_SIZE) * WORLD_SIZE)),
+    wy: Math.min(WORLD_SIZE - 1, Math.floor(((cy + 0.5) / CA_SIZE) * WORLD_SIZE)),
+  };
+}
+
 export class ColonyScene {
   renderer: THREE.WebGLRenderer;
   scene: THREE.Scene;
@@ -108,6 +134,22 @@ export class ColonyScene {
   private conflictRing: THREE.Mesh | null = null;
   private seasonTint = 1;
   private agentPulseUntil = new Map<string, number>();
+  private agentMotionPhase = new Map<string, number>();
+  private bubbleMesh: THREE.InstancedMesh;
+  private bubbleBase = new Float32Array(AMBIENT_BUBBLE_COUNT * 3);
+  private bubblePhase = new Float32Array(AMBIENT_BUBBLE_COUNT * 4);
+  private caGrid = new Uint8Array(CA_CELLS);
+  private caNext = new Uint8Array(CA_CELLS);
+  private caBlocked = new Uint8Array(CA_CELLS);
+  private caPhase = new Float32Array(CA_CELLS);
+  private caMesh: THREE.InstancedMesh;
+  private caMat: THREE.MeshStandardMaterial;
+  private caAccumulator = 0;
+  private caActive = false;
+  private caAliveColor = new THREE.Color(ECO.mossGlow);
+  private caIdleColor = new THREE.Color(ECO.moss);
+  private alivePulse = IDLE_ALIVE_PULSE;
+  private computing = false;
   private clock = new THREE.Clock();
   private panX = 0;
   private panZ = 0;
@@ -163,6 +205,24 @@ export class ColonyScene {
     this.zoneMesh.position.set(WORLD_EXTENT / 2, 0, WORLD_EXTENT / 2);
     this.scene.add(this.zoneMesh);
 
+    this.caMat = new THREE.MeshStandardMaterial({
+      color: ECO.moss,
+      emissive: ECO.mossGlow,
+      emissiveIntensity: 0.45,
+      roughness: 0.55,
+      metalness: 0.04,
+      vertexColors: true,
+    });
+    const caGeo = new THREE.BoxGeometry(CA_CELL * 0.82, CELL * 0.22, CA_CELL * 0.82);
+    this.caMesh = new THREE.InstancedMesh(caGeo, this.caMat, CA_CELLS);
+    this.caMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.caMesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(CA_CELLS * 3), 3);
+    this.initCaBlocked();
+    this.caGrid.fill(0);
+    this.updateCaMesh(0, 0);
+    this.caMesh.visible = false;
+    this.scene.add(this.caMesh);
+
     this.volWash = new THREE.Mesh(
       new THREE.PlaneGeometry(WORLD_EXTENT * 1.1, WORLD_EXTENT * 1.1),
       new THREE.MeshBasicMaterial({
@@ -213,6 +273,39 @@ export class ColonyScene {
     this.agentMesh.instanceMatrix.needsUpdate = true;
     this.scene.add(this.agentMesh);
 
+    const bubbleGeo = new THREE.SphereGeometry(CELL * 0.11, 6, 6);
+    const bubbleMat = new THREE.MeshStandardMaterial({
+      color: ECO.mossGlow,
+      emissive: ECO.mossGlow,
+      emissiveIntensity: 0.55,
+      transparent: true,
+      opacity: 0.38,
+      roughness: 0.2,
+      metalness: 0.05,
+      depthWrite: false,
+    });
+    this.bubbleMesh = new THREE.InstancedMesh(bubbleGeo, bubbleMat, AMBIENT_BUBBLE_COUNT);
+    this.bubbleMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    const cx = WORLD_EXTENT / 2;
+    const cz = WORLD_EXTENT / 2;
+    for (let i = 0; i < AMBIENT_BUBBLE_COUNT; i++) {
+      const angle = (i / AMBIENT_BUBBLE_COUNT) * Math.PI * 2 * 3.7;
+      const radius = 6 + (i % 17) * 2.1 + Math.sin(i * 1.3) * 4;
+      this.bubbleBase[i * 3] = cx + Math.cos(angle) * radius;
+      this.bubbleBase[i * 3 + 1] = 0.12 + (i % 5) * 0.04;
+      this.bubbleBase[i * 3 + 2] = cz + Math.sin(angle) * radius;
+      this.bubblePhase[i * 4] = Math.random() * Math.PI * 2;
+      this.bubblePhase[i * 4 + 1] = Math.random() * Math.PI * 2;
+      this.bubblePhase[i * 4 + 2] = Math.random() * Math.PI * 2;
+      this.bubblePhase[i * 4 + 3] = 0.55 + Math.random() * 0.9;
+      this.dummy.position.set(this.bubbleBase[i * 3], this.bubbleBase[i * 3 + 1], this.bubbleBase[i * 3 + 2]);
+      this.dummy.scale.setScalar(0.001);
+      this.dummy.updateMatrix();
+      this.bubbleMesh.setMatrixAt(i, this.dummy.matrix);
+    }
+    this.bubbleMesh.instanceMatrix.needsUpdate = true;
+    this.scene.add(this.bubbleMesh);
+
     this.layers = {
       agents: true,
       connections: true,
@@ -242,22 +335,35 @@ export class ColonyScene {
     const p = event.payload;
     switch (event.type) {
       case "attention_judgment":
-        if (this.layers.attention_agent) this.addConnection(p as unknown as DependencyEntry);
+        if (this.layers.attention_agent) {
+          this.addConnection(p as unknown as DependencyEntry);
+          const entry = p as unknown as DependencyEntry;
+          const from = this.agents.get(entry.from_id);
+          const to = this.agents.get(entry.to_id);
+          if (from) this.sparkCaAt(from.grid_x, from.grid_y, 1);
+          if (to) this.sparkCaAt(to.grid_x, to.grid_y, 1);
+        }
         break;
       case "messenger_propose":
       case "reformer_update":
       case "task_decomposed":
         if (this.layers.agents || this.layers.feed_forward_agent) {
           const id = (p.agent_id ?? p.assigned_to) as string;
-          if (id) this.pulseAgent(id);
+          if (id) {
+            this.pulseAgent(id);
+            const agent = this.agents.get(id);
+            if (agent) this.sparkCaAt(agent.grid_x, agent.grid_y, 2);
+          }
         }
         break;
       case "tick_phase":
         if (this.layers.agents) this.pulseAllAgents();
+        this.sparkCaFromAgents(2);
         break;
       case "attention_progress":
         if (this.layers.attention_agent && typeof p.matched === "number" && p.matched > 0) {
           this.pulseAllAgents();
+          this.sparkCaFromAgents(1);
         }
         break;
       case "negotiation_round":
@@ -338,6 +444,39 @@ export class ColonyScene {
     this.colonyPurpose = goal.trim();
   }
 
+  /** Boost ambient motion while the society loop is actively computing. */
+  setComputing(active: boolean): void {
+    this.computing = active;
+  }
+
+  /** Start or stop Conway CA — only enabled after Deploy Colony. */
+  setCaActive(active: boolean): void {
+    this.caActive = active;
+    if (active) {
+      this.seedCaGrid();
+      this.caAccumulator = 0;
+      this.updateCaMesh(this.clock.getElapsedTime(), 1);
+    } else {
+      this.caGrid.fill(0);
+      this.caAccumulator = 0;
+      this.updateCaMesh(0, 0);
+    }
+    this.syncCaVisibility();
+  }
+
+  private syncCaVisibility(): void {
+    this.caMesh.visible = this.layers.colony && this.caActive;
+  }
+
+  private agentPhase(id: string): number {
+    let phase = this.agentMotionPhase.get(id);
+    if (phase === undefined) {
+      phase = (id.charCodeAt(0) + id.charCodeAt(id.length - 1)) * 0.17;
+      this.agentMotionPhase.set(id, phase);
+    }
+    return phase;
+  }
+
   /** Clear agents, playbook edges, and debate overlays for a fresh colony. */
   resetColony(): void {
     this.hideCellTooltip();
@@ -349,6 +488,7 @@ export class ColonyScene {
     this.connectionLines = [];
     this.spawnAnim.clear();
     this.spreadWaveStart = -1;
+    this.setCaActive(false);
     for (const pts of this.debateParticles) {
       this.scene.remove(pts);
       pts.geometry.dispose();
@@ -489,10 +629,13 @@ export class ColonyScene {
     }
     this.agents.delete(id);
     this.prevPositions.delete(id);
+    this.agentMotionPhase.delete(id);
   }
 
   applyLayers(): void {
     this.agentMesh.visible = this.layers.agents;
+    this.bubbleMesh.visible = this.layers.colony;
+    this.syncCaVisibility();
     this.connectionLines.forEach((c) => (c.line.visible = this.layers.connections));
     this.institutionHulls.forEach((m) => (m.visible = this.layers.institutions));
     this.debateParticles.forEach((p) => (p.visible = this.layers.negotiations));
@@ -500,37 +643,81 @@ export class ColonyScene {
   }
 
   render(): void {
+    const dt = this.clock.getDelta();
     const t = this.clock.getElapsedTime();
+    const targetPulse = this.computing ? COMPUTE_ALIVE_PULSE : IDLE_ALIVE_PULSE;
+    this.alivePulse += (targetPulse - this.alivePulse) * 0.04;
+    const life = this.alivePulse;
+
+    if (this.caActive) {
+      const caHz = this.computing ? CA_COMPUTE_HZ : CA_IDLE_HZ;
+      this.caAccumulator += dt;
+      const caInterval = 1 / caHz;
+      while (this.caAccumulator >= caInterval) {
+        this.stepCaGrid();
+        this.caAccumulator -= caInterval;
+      }
+      this.updateCaMesh(t, life);
+    }
+
     const agentMat = this.agentMesh.material as THREE.MeshStandardMaterial;
-    agentMat.emissiveIntensity = 0.38 + Math.sin(t * 2.5) * 0.08;
+    agentMat.emissiveIntensity = 0.34 + Math.sin(t * 2.5) * 0.1 * life;
 
     for (const [id, idx] of this.agentIndex) {
       const agent = this.agents.get(id);
       if (!agent) continue;
       const pos = this.agentWorldPos(agent, t);
+      const phase = this.agentPhase(id);
       const pulsing = (this.agentPulseUntil.get(id) ?? 0) > t;
       const working = Boolean(agent.current_task_id) || pulsing || pos.spreading;
-      const bob = working ? Math.sin(t * 4 + idx * 0.3) * 0.06 : 0;
+      const ambientBob = Math.sin(t * 2.2 + phase) * 0.09 * life;
+      const activeBob = working ? Math.sin(t * 4.2 + idx * 0.3) * 0.05 * life : 0;
+      const wobbleX = Math.sin(t * 1.35 + phase * 1.7) * 0.045 * life;
+      const wobbleZ = Math.cos(t * 1.15 + phase * 2.3) * 0.045 * life;
       const stack = 1 + Math.min(agent.nouns.length, 4) * 0.12;
       const base = (agent.role === "worker" || agent.role === "generalist" ? 0.88 : 1.05) * stack;
-      const scale = base * (pulsing ? 1.25 : working ? 1.1 : 1);
-      const y = CELL * (0.28 + stack * 0.18) + bob;
-      this.dummy.position.set(pos.x, y, pos.z);
+      const breathe = 1 + Math.sin(t * 1.9 + phase) * 0.07 * life;
+      const scale = base * breathe * (pulsing ? 1.22 : working ? 1.08 : 1);
+      const y = CELL * (0.28 + stack * 0.18) + ambientBob + activeBob;
+      this.dummy.position.set(pos.x + wobbleX, y, pos.z + wobbleZ);
       this.dummy.scale.set(1, scale, 1);
       this.dummy.updateMatrix();
       this.agentMesh.setMatrixAt(idx, this.dummy.matrix);
     }
     this.agentMesh.instanceMatrix.needsUpdate = true;
 
+    const bubbleMat = this.bubbleMesh.material as THREE.MeshStandardMaterial;
+    bubbleMat.emissiveIntensity = 0.42 + Math.sin(t * 1.6) * 0.18 * life;
+    bubbleMat.opacity = 0.28 + Math.sin(t * 1.1) * 0.1 * life;
+    for (let i = 0; i < AMBIENT_BUBBLE_COUNT; i++) {
+      const ph0 = this.bubblePhase[i * 4];
+      const ph1 = this.bubblePhase[i * 4 + 1];
+      const ph2 = this.bubblePhase[i * 4 + 2];
+      const speed = this.bubblePhase[i * 4 + 3];
+      const bx = this.bubbleBase[i * 3];
+      const by = this.bubbleBase[i * 3 + 1];
+      const bz = this.bubbleBase[i * 3 + 2];
+      const rise = Math.abs(Math.sin(t * (0.85 + speed * 0.25) + ph1)) * 0.42 * life;
+      const driftX = Math.sin(t * (0.65 + speed * 0.15) + ph0) * 0.28 * life;
+      const driftZ = Math.cos(t * (0.55 + speed * 0.12) + ph2) * 0.28 * life;
+      const bScale = (0.45 + Math.sin(t * (1.7 + speed * 0.2) + ph0) * 0.28) * life;
+      this.dummy.position.set(bx + driftX, by + rise, bz + driftZ);
+      this.dummy.scale.setScalar(bScale);
+      this.dummy.updateMatrix();
+      this.bubbleMesh.setMatrixAt(i, this.dummy.matrix);
+    }
+    this.bubbleMesh.instanceMatrix.needsUpdate = true;
+
     for (const conn of this.connectionLines) {
       const from = this.agents.get(conn.fromId);
       const to = this.agents.get(conn.toId);
+      const lineY = conn.y + Math.sin(t * 2.4 + conn.pulse) * 0.08 * life;
       if (from && to) {
         const fp = this.agentWorldPos(from, t);
         const tp = this.agentWorldPos(to, t);
         const pos = conn.line.geometry.getAttribute("position") as THREE.BufferAttribute;
-        pos.setXYZ(0, fp.x, conn.y, fp.z);
-        pos.setXYZ(1, tp.x, conn.y, tp.z);
+        pos.setXYZ(0, fp.x, lineY, fp.z);
+        pos.setXYZ(1, tp.x, lineY, tp.z);
         pos.needsUpdate = true;
         conn.line.computeLineDistances();
       }
@@ -539,7 +726,15 @@ export class ColonyScene {
       const pulse = 0.72 + Math.sin(t * 3.2 + conn.pulse) * 0.22;
       conn.mat.opacity = (0.35 + conn.strength * 0.45) * pulse * fadeIn;
       (conn.mat as THREE.LineDashedMaterial & { dashOffset: number }).dashOffset -=
-        0.05 * (0.6 + conn.strength);
+        (0.035 + 0.03 * life) * (0.6 + conn.strength);
+    }
+
+    for (let i = 0; i < this.institutionHulls.length; i++) {
+      const hull = this.institutionHulls[i];
+      const baseY = (hull.userData.baseY as number | undefined) ?? hull.position.y;
+      hull.position.y = baseY + Math.sin(t * 1.6 + i * 0.8) * 0.05 * life;
+      const s = 1 + Math.sin(t * 2.1 + i * 0.5) * 0.035 * life;
+      hull.scale.set(s, 1, s);
     }
 
     let waveBoost = 0;
@@ -551,11 +746,148 @@ export class ColonyScene {
         this.spreadWaveStart = -1;
       }
     }
-    this.zoneMat.emissiveIntensity = 0.1 + Math.sin(t * 1.2) * 0.04 + waveBoost;
-    (this.volWash.material as THREE.MeshBasicMaterial).opacity = 0.06 + Math.sin(t * 0.8) * 0.025 + waveBoost * 0.6;
-    this.sectorLineMat.opacity = 0.22 + Math.sin(t * 1.6) * 0.04 + waveBoost;
+    const meadowPulse = Math.sin(t * 1.2) * 0.05 * life;
+    this.zoneMat.emissiveIntensity = 0.1 + meadowPulse + waveBoost;
+    (this.volWash.material as THREE.MeshBasicMaterial).opacity =
+      0.06 + Math.sin(t * 0.8) * 0.03 * life + waveBoost * 0.6;
+    this.sectorLineMat.opacity = 0.22 + Math.sin(t * 1.6) * 0.05 * life + waveBoost;
+    this.volWash.position.y = 0.4 + Math.sin(t * 0.9) * 0.06 * life;
+    const washScale = 1 + Math.sin(t * 0.7) * 0.012 * life;
+    this.volWash.scale.set(washScale, washScale, 1);
+    this.sectorLines.position.y = 0.02 + Math.sin(t * 1.3) * 0.015 * life;
+
+    if (this.caActive) {
+      this.caMat.emissiveIntensity = 0.38 + Math.sin(t * 2.8) * 0.14 * life;
+    }
 
     this.renderer.render(this.scene, this.camera);
+  }
+
+  private caIndex(cx: number, cy: number): number {
+    return cy * CA_SIZE + cx;
+  }
+
+  private initCaBlocked(): void {
+    for (let cy = 0; cy < CA_SIZE; cy++) {
+      for (let cx = 0; cx < CA_SIZE; cx++) {
+        const idx = this.caIndex(cx, cy);
+        const { wx, wy } = caWorldCoord(cx, cy);
+        this.caBlocked[idx] = isTreeWorld(wx, wy) ? 1 : 0;
+      }
+    }
+  }
+
+  private seedCaGrid(): void {
+    for (let cy = 0; cy < CA_SIZE; cy++) {
+      for (let cx = 0; cx < CA_SIZE; cx++) {
+        const idx = this.caIndex(cx, cy);
+        const { wx, wy } = caWorldCoord(cx, cy);
+        if (isTreeWorld(wx, wy)) {
+          this.caBlocked[idx] = 1;
+          this.caGrid[idx] = 0;
+          this.caPhase[idx] = 0;
+          continue;
+        }
+        this.caBlocked[idx] = 0;
+        this.caGrid[idx] = Math.random() < 0.26 ? 1 : 0;
+        this.caPhase[idx] = Math.random() * Math.PI * 2;
+      }
+    }
+    const mid = Math.floor(CA_SIZE / 2);
+    const gliders: [number, number][] = [
+      [mid - 4, mid - 2],
+      [mid - 3, mid - 1],
+      [mid - 2, mid - 1],
+      [mid - 1, mid],
+      [mid - 4, mid],
+      [mid + 2, mid + 3],
+      [mid + 3, mid + 4],
+      [mid + 4, mid + 4],
+      [mid + 5, mid + 4],
+    ];
+    for (const [gx, gy] of gliders) {
+      if (gx < 0 || gy < 0 || gx >= CA_SIZE || gy >= CA_SIZE) continue;
+      const idx = this.caIndex(gx, gy);
+      if (!this.caBlocked[idx]) this.caGrid[idx] = 1;
+    }
+  }
+
+  private stepCaGrid(): void {
+    for (let cy = 0; cy < CA_SIZE; cy++) {
+      for (let cx = 0; cx < CA_SIZE; cx++) {
+        const idx = this.caIndex(cx, cy);
+        if (this.caBlocked[idx]) {
+          this.caNext[idx] = 0;
+          continue;
+        }
+        let neighbors = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const nx = (cx + dx + CA_SIZE) % CA_SIZE;
+            const ny = (cy + dy + CA_SIZE) % CA_SIZE;
+            const nIdx = this.caIndex(nx, ny);
+            if (!this.caBlocked[nIdx]) neighbors += this.caGrid[nIdx];
+          }
+        }
+        const alive = this.caGrid[idx] === 1;
+        this.caNext[idx] = alive ? (neighbors === 2 || neighbors === 3 ? 1 : 0) : neighbors === 3 ? 1 : 0;
+      }
+    }
+    this.caGrid.set(this.caNext);
+  }
+
+  private updateCaMesh(t: number, life: number): void {
+    let i = 0;
+    for (let cy = 0; cy < CA_SIZE; cy++) {
+      for (let cx = 0; cx < CA_SIZE; cx++) {
+        const idx = this.caIndex(cx, cy);
+        const alive = this.caGrid[idx] === 1 && !this.caBlocked[idx];
+        const x = cx * CA_CELL + CA_CELL / 2;
+        const z = cy * CA_CELL + CA_CELL / 2;
+        if (alive) {
+          const pulse = 0.82 + Math.sin(t * 5.5 + this.caPhase[idx]) * 0.22 * life;
+          const bob = Math.sin(t * 3.4 + this.caPhase[idx] * 1.3) * 0.04 * life;
+          this.dummy.position.set(x, CELL * 0.14 + bob, z);
+          this.dummy.scale.set(pulse, 0.85 + pulse * 0.2, pulse);
+          this.caAliveColor.setHex(ECO.mossGlow);
+          this.caAliveColor.lerp(this.colorHelper.setHex(ECO.grassBright), 0.18);
+        } else {
+          this.dummy.position.set(x, -3, z);
+          this.dummy.scale.setScalar(0.001);
+          this.caIdleColor.setHex(ECO.moss);
+        }
+        this.dummy.updateMatrix();
+        this.caMesh.setMatrixAt(i, this.dummy.matrix);
+        this.caMesh.setColorAt(i, alive ? this.caAliveColor : this.caIdleColor);
+        i++;
+      }
+    }
+    this.caMesh.instanceMatrix.needsUpdate = true;
+    if (this.caMesh.instanceColor) this.caMesh.instanceColor.needsUpdate = true;
+  }
+
+  private sparkCaAt(wx: number, wy: number, radius = 2): void {
+    if (!this.caActive) return;
+    const cx = Math.floor((wx / WORLD_SIZE) * CA_SIZE);
+    const cy = Math.floor((wy / WORLD_SIZE) * CA_SIZE);
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const nx = (cx + dx + CA_SIZE) % CA_SIZE;
+        const ny = (cy + dy + CA_SIZE) % CA_SIZE;
+        const idx = this.caIndex(nx, ny);
+        if (this.caBlocked[idx]) continue;
+        if (Math.abs(dx) + Math.abs(dy) <= radius) {
+          this.caGrid[idx] = Math.random() < 0.72 ? 1 : 0;
+        }
+      }
+    }
+  }
+
+  private sparkCaFromAgents(radius = 1): void {
+    for (const agent of this.agents.values()) {
+      this.sparkCaAt(agent.grid_x, agent.grid_y, radius);
+    }
   }
 
   private buildZoneGeometry(): THREE.BufferGeometry {
@@ -728,6 +1060,7 @@ export class ColonyScene {
       }),
     );
     hull.position.set(cx, CELL * 0.12, cz);
+    hull.userData.baseY = CELL * 0.12;
     this.scene.add(hull);
     this.institutionHulls.push(hull);
     if (this.institutionHulls.length > 24) {

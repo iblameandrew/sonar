@@ -89,6 +89,7 @@ function isColonyActive(s: LiveState): boolean {
 
 function setColonyRunning(running: boolean): void {
   colonyRunning = running;
+  scene?.setComputing(running);
   syncDeployButtons();
 }
 
@@ -310,6 +311,7 @@ function applyLiveEvent(event: SimEvent): void {
 
 function wireSseHandlers(): void {
   sse.onConnection((connected) => {
+    if (connected) void dashboard.ensureAttentionPolicyLoaded();
     dashboard.updateStreamStatus(connected);
   });
   sse.onAll((event: SimEvent) => {
@@ -325,6 +327,7 @@ async function deployColony() {
   try {
     deployInFlight = true;
     syncDeployButtons();
+    scene?.setCaActive(true);
     modeLabel.textContent = "Starting…";
     activeGoalEl.textContent = prompt
       ? "Deploying colony…"
@@ -393,6 +396,7 @@ async function deployColony() {
     dashboard.logEvent({ type: "deploy_failed", tick: 0, payload: { message: msg } });
     dashboard.switchTab("activity");
     setColonyRunning(false);
+    scene?.setCaActive(false);
   } finally {
     deployInFlight = false;
     syncDeployButtons();
@@ -543,14 +547,19 @@ async function init() {
     }
 
     await hydrateFromState(state);
+    void dashboard.ensureAttentionPolicyLoaded();
     if (state.final_answer && !isColonyActive(state)) {
       showFinalAnswer(state.final_answer, { autoOpen: false });
     }
     setColonyRunning(isColonyActive(state));
-    if (isColonyActive(state)) startStatePolling();
+    if (isColonyActive(state)) {
+      scene?.setCaActive(true);
+      startStatePolling();
+    }
   } catch (err) {
     console.error("Initial state failed:", err);
-    activeGoalEl.textContent = "Backend unreachable — start the API server on :8000.";
+    activeGoalEl.textContent = "Backend unreachable — start the API server on :8001.";
+    void dashboard.ensureAttentionPolicyLoaded();
   }
 
   if (scene) {

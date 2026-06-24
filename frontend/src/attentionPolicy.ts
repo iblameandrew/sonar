@@ -26,28 +26,56 @@ export interface PolicyPreview {
 
 const STORAGE_KEY = "colony_attention_policy_v1";
 
+async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(path, init);
+  if (!res.ok) {
+    throw new Error(`${path} failed: HTTP ${res.status}`);
+  }
+  return res.json() as Promise<T>;
+}
+
 export async function fetchCatalogue(): Promise<AttentionFunction[]> {
-  const res = await fetch("/api/attention/catalogue");
-  const data = await res.json();
-  return data.functions ?? [];
+  const data = await fetchJson<{ functions?: AttentionFunction[] }>("/api/attention/catalogue");
+  const functions = data.functions ?? [];
+  if (!functions.length) {
+    throw new Error("attention catalogue empty");
+  }
+  return functions;
 }
 
 export async function fetchDefaultPolicy(): Promise<AttentionPolicy> {
-  const res = await fetch("/api/attention/policy/default");
-  const data = await res.json();
-  return data.policy as AttentionPolicy;
+  const data = await fetchJson<{ policy: AttentionPolicy }>("/api/attention/policy/default");
+  return data.policy;
 }
 
 export async function normalizePolicy(policy: AttentionPolicy): Promise<{
   policy: AttentionPolicy;
   preview: PolicyPreview[];
 }> {
-  const res = await fetch("/api/attention/policy/normalize", {
+  return fetchJson("/api/attention/policy/normalize", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(policy),
   });
-  return res.json();
+}
+
+export async function withApiRetry<T>(
+  fn: () => Promise<T>,
+  attempts = 15,
+  delayMs = 500,
+): Promise<T> {
+  let last: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      last = err;
+      if (i < attempts - 1) {
+        await new Promise((r) => setTimeout(r, delayMs * (i + 1)));
+      }
+    }
+  }
+  throw last;
 }
 
 export function savePolicyLocal(policy: AttentionPolicy): void {
