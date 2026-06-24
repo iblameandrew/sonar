@@ -34,6 +34,7 @@
   font-weight: 600;
   line-height: 1.4;
 }
+.hidden { display: none !important; }
 .boot-error.hidden { display: none; }
 
 html, body, #app {
