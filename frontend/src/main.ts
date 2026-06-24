@@ -1,8 +1,9 @@
-import { ColonyScene } from "./scene/ColonyScene";
 import { SSEClient } from "./sse/client";
 import { roleLabel } from "./agentRoles";
-import { Dashboard, type QwenStatus } from "./ui/Dashboard";
+import type { Dashboard } from "./ui/Dashboard";
+import type { ColonyScene } from "./scene/ColonyScene";
 import type { Agent, ColonyInfo, ComparisonMetrics, ProjectCanvas, SimEvent } from "./types";
+import type { QwenStatus } from "./ui/Dashboard";
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const tickLabel = document.getElementById("tick-label")!;
@@ -12,11 +13,11 @@ const modeLabel = document.getElementById("mode-label")!;
 const inspectPanel = document.getElementById("inspect-panel")!;
 const promptInput = document.getElementById("colony-prompt") as HTMLTextAreaElement;
 const activeGoalEl = document.getElementById("active-goal")!;
+const bootErrorEl = document.getElementById("boot-error");
 
-const scene = new ColonyScene(canvas);
+let scene: ColonyScene | null = null;
+let dashboard: Dashboard;
 const sse = new SSEClient();
-const dashboard = new Dashboard(scene);
-
 let colonyRefreshTick = 0;
 
 async function api(path: string, method = "GET", body?: unknown) {
@@ -34,6 +35,16 @@ function getPrompt(): string {
 
 function setActiveGoal(goal: string): void {
   activeGoalEl.textContent = goal ? `Solving: ${goal}` : "";
+}
+
+function showBootError(err: unknown): void {
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error("Colony boot failed:", err);
+  if (bootErrorEl) {
+    bootErrorEl.classList.remove("hidden");
+    bootErrorEl.textContent =
+      `UI failed to load the 3D scene (${msg}). Hard-refresh (Ctrl+Shift+R) or restart \`npm run dev\`. Dashboard controls should still work.`;
+  }
 }
 
 async function deployColony() {
@@ -54,7 +65,7 @@ async function deployColony() {
   });
 
   const s = await api("/state");
-  scene.loadAgents(s.agents);
+  scene?.loadAgents(s.agents);
   dashboard.updateTasks(s.canvas);
   dashboard.refreshColony(s.agents);
   if (s.colony) dashboard.updateColonyFromServer(s.colony);
@@ -77,17 +88,28 @@ function wireControls(): void {
 }
 
 function startRenderLoop(): void {
+  if (!scene) return;
   (function animate() {
     requestAnimationFrame(animate);
-    scene.render();
+    scene!.render();
     colonyRefreshTick++;
     if (colonyRefreshTick % 90 === 0) dashboard.refreshColony();
   })();
 }
 
 async function init() {
+  const { Dashboard: DashboardCtor } = await import("./ui/Dashboard");
+  try {
+    const { ColonyScene: ColonySceneCtor } = await import("./scene/ColonyScene");
+    scene = new ColonySceneCtor(canvas);
+    dashboard = new DashboardCtor(scene);
+    startRenderLoop();
+  } catch (err) {
+    showBootError(err);
+    dashboard = new DashboardCtor();
+  }
+
   wireControls();
-  startRenderLoop();
 
   try {
     await dashboard.loadQwen();
@@ -115,8 +137,8 @@ async function init() {
   if (!state) return;
   if (state.qwen) dashboard.updateQwen(state.qwen);
   if (state.agents?.length) {
-    scene.loadAgents(state.agents);
-    if (state.canvas?.colony_voxels) scene.loadColonyVoxels(state.canvas.colony_voxels);
+    scene?.loadAgents(state.agents);
+    if (state.canvas?.colony_voxels) scene?.loadColonyVoxels(state.canvas.colony_voxels);
     dashboard.updateTasks(state.canvas);
     dashboard.refreshColony(state.agents);
     if (state.colony) dashboard.updateColonyFromServer(state.colony);
@@ -127,25 +149,27 @@ async function init() {
     updateStatus(state);
   }
 
-  scene.onAgentSelect = (agent) => {
-    if (!agent) { inspectPanel.classList.add("hidden"); return; }
-    inspectPanel.classList.remove("hidden");
-    api(`/agents/${agent.id}`).then((deps) => {
-      inspectPanel.innerHTML = `
-        <strong>${agent.name}</strong> · ${roleLabel(agent.role)}<br/>
-        Zone ${Math.floor(agent.grid_x / 12)}-${Math.floor(agent.grid_y / 12)}<br/>
-        ${agent.verbs.join(" · ")}<br/>
-        <em>${agent.adjectives.join(", ")}</em><br/>
-        Deps: ${deps.incoming?.length ?? 0} in / ${deps.outgoing?.length ?? 0} out
-      `;
-    });
-  };
+  if (scene) {
+    scene.onAgentSelect = (agent) => {
+      if (!agent) { inspectPanel.classList.add("hidden"); return; }
+      inspectPanel.classList.remove("hidden");
+      api(`/agents/${agent.id}`).then((deps) => {
+        inspectPanel.innerHTML = `
+          <strong>${agent.name}</strong> · ${roleLabel(agent.role)}<br/>
+          Zone ${Math.floor(agent.grid_x / 12)}-${Math.floor(agent.grid_y / 12)}<br/>
+          ${agent.verbs.join(" · ")}<br/>
+          <em>${agent.adjectives.join(", ")}</em><br/>
+          Deps: ${deps.incoming?.length ?? 0} in / ${deps.outgoing?.length ?? 0} out
+        `;
+      });
+    };
 
-  scene.onMovement = (agent, from) => dashboard.logMovement(agent, from);
+    scene.onMovement = (agent, from) => dashboard.logMovement(agent, from);
+  }
 
   sse.connect();
   sse.onAll((event: SimEvent) => {
-    scene.handleEvent(event);
+    scene?.handleEvent(event);
     dashboard.logEvent(event);
     if (event.type === "negotiation_round" || event.type === "conflict_resolved") {
       dashboard.addNegotiation(event.payload as never);

@@ -1,3 +1,4 @@
+/** Colony isometric zone-map scene (Three.js). */
 import * as THREE from "three";
 import type { Agent, DependencyEntry, LayerVisibility, SimEvent } from "../types";
 import { KIND_COLORS, ROLE_COLORS, STRENGTH_SCALE } from "../types";

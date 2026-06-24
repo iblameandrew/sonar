@@ -20,6 +20,22 @@
   --shadow: 0 4px 24px rgba(45, 90, 50, 0.18);
 }
 
+.boot-error {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  padding: 10px 16px;
+  background: #ffebee;
+  border-bottom: 2px solid #ef9a9a;
+  color: #b71c1c;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.boot-error.hidden { display: none; }
+
 html, body, #app {
   width: 100%;
   height: 100%;
