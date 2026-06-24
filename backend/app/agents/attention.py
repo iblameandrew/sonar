@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
@@ -85,9 +86,43 @@ def _heuristic_judge(
     )
 
 
+WORKER_ROLES = frozenset({"worker", "generalist"})
+
+MAX_ATTENTION_PAIRS = 96
+
+
 class AttentionAgent:
     def __init__(self, max_concurrency: int = 8) -> None:
         self.max_concurrency = max_concurrency
+
+    def _select_pairs(self, agents: list[QualitativeAgent]) -> list[tuple[QualitativeAgent, QualitativeAgent]]:
+        specialists = [a for a in agents if a.role not in WORKER_ROLES]
+        pairs: list[tuple[QualitativeAgent, QualitativeAgent]] = []
+        seen: set[tuple[str, str]] = set()
+
+        def add_pair(a: QualitativeAgent, b: QualitativeAgent) -> None:
+            if a.id == b.id:
+                return
+            key = (a.id, b.id)
+            if key in seen:
+                return
+            seen.add(key)
+            pairs.append((a, b))
+
+        for a in specialists:
+            for b in agents:
+                add_pair(a, b)
+
+        workers = [a for a in agents if a.role in WORKER_ROLES]
+        worker_pairs = [(a, b) for a in workers for b in workers if a.id != b.id]
+        random.shuffle(worker_pairs)
+        for a, b in worker_pairs[:32]:
+            add_pair(a, b)
+
+        if len(pairs) > MAX_ATTENTION_PAIRS:
+            random.shuffle(pairs)
+            pairs = pairs[:MAX_ATTENTION_PAIRS]
+        return pairs
 
     async def judge_pair(
         self,
@@ -100,6 +135,14 @@ class AttentionAgent:
     ) -> DependencyEntry | None:
         if agent_a.id == agent_b.id:
             return None
+
+        if (
+            agent_a.role in WORKER_ROLES
+            and agent_b.role in WORKER_ROLES
+        ) or not qwen_factory.is_configured():
+            return _heuristic_judge(
+                agent_a, agent_b, tick, season_weight, temperature, dominant_kind
+            )
 
         result = await qwen_factory.ainvoke_structured(
             ATTENTION_AGENT,
@@ -130,7 +173,7 @@ class AttentionAgent:
         season_weight: float, temperature: str, dominant_kind: str,
     ) -> list[DependencyEntry]:
         sem = asyncio.Semaphore(self.max_concurrency)
-        pairs = [(a, b) for a in agents for b in agents if a.id != b.id]
+        pairs = self._select_pairs(agents)
 
         async def _judge(a: QualitativeAgent, b: QualitativeAgent) -> DependencyEntry | None:
             async with sem:

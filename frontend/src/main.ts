@@ -19,13 +19,29 @@ let dashboard: Dashboard;
 const sse = new SSEClient();
 let colonyRefreshTick = 0;
 
-async function api(path: string, method = "GET", body?: unknown) {
+async function api<T = Record<string, unknown>>(path: string, method = "GET", body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
     method,
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
-  return res.json();
+  const text = await res.text();
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = { detail: text };
+    }
+  }
+  if (!res.ok) {
+    const detail =
+      typeof data === "object" && data && "detail" in data
+        ? String((data as { detail: unknown }).detail)
+        : res.statusText;
+    throw new Error(detail || `HTTP ${res.status}`);
+  }
+  return data as T;
 }
 
 function getPrompt(): string {
@@ -48,29 +64,54 @@ function showBootError(err: unknown): void {
 
 async function deployColony() {
   const prompt = getPrompt();
-  if (!prompt) {
-    promptInput.focus();
-    activeGoalEl.textContent = "Enter a problem for the colony to solve.";
-    return;
+  const solveBtn = document.getElementById("btn-solve") as HTMLButtonElement | null;
+  const societyBtn = document.getElementById("btn-society") as HTMLButtonElement | null;
+
+  try {
+    modeLabel.textContent = "Starting…";
+    activeGoalEl.textContent = prompt
+      ? "Deploying colony…"
+      : "Deploying colony with default goal…";
+    solveBtn && (solveBtn.disabled = true);
+    societyBtn && (societyBtn.disabled = true);
+
+    const agentCount = dashboard.getAgentCount();
+    const started = await api<{ status?: string; goal?: string }>("/sim/society", "POST", {
+      max_ticks: 80,
+      speed: 1.5,
+      agent_count: agentCount,
+      prompt,
+    });
+
+    modeLabel.textContent = "Society";
+    const s = await api<{
+      agents?: Agent[];
+      canvas?: ProjectCanvas;
+      colony?: ColonyInfo;
+      tick?: number;
+      design_phase?: string;
+      regret?: number;
+      execution_mode?: string;
+    }>("/state");
+
+    scene?.loadAgents(s.agents ?? []);
+    dashboard.updateTasks(s.canvas);
+    dashboard.refreshColony(s.agents);
+    if (s.colony) dashboard.updateColonyFromServer(s.colony);
+    const goal = s.canvas?.goal ?? started.goal ?? prompt;
+    if (goal) setActiveGoal(goal);
+    updateStatus(s);
+    dashboard.switchTab("colony");
+    activeGoalEl.textContent = goal ? `Solving: ${goal}` : "Colony running";
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Deploy failed:", err);
+    modeLabel.textContent = "Idle";
+    activeGoalEl.textContent = `Deploy failed: ${msg}`;
+  } finally {
+    solveBtn && (solveBtn.disabled = false);
+    societyBtn && (societyBtn.disabled = false);
   }
-
-  modeLabel.textContent = "Society";
-  const agentCount = dashboard.getAgentCount();
-  await api("/sim/society", "POST", {
-    max_ticks: 80,
-    speed: 1.5,
-    agent_count: agentCount,
-    prompt,
-  });
-
-  const s = await api("/state");
-  scene?.loadAgents(s.agents);
-  dashboard.updateTasks(s.canvas);
-  dashboard.refreshColony(s.agents);
-  if (s.colony) dashboard.updateColonyFromServer(s.colony);
-  if (s.canvas?.goal) setActiveGoal(s.canvas.goal);
-  updateStatus(s);
-  dashboard.switchTab("colony");
 }
 
 function wireControls(): void {
@@ -152,7 +193,7 @@ async function init() {
     scene.onAgentSelect = (agent) => {
       if (!agent) { inspectPanel.classList.add("hidden"); return; }
       inspectPanel.classList.remove("hidden");
-      api(`/agents/${agent.id}`).then((deps) => {
+      api<{ incoming?: unknown[]; outgoing?: unknown[] }>(`/agents/${agent.id}`).then((deps) => {
         inspectPanel.innerHTML = `
           <strong>${agent.name}</strong> · ${roleLabel(agent.role)}<br/>
           Zone ${Math.floor(agent.grid_x / 12)}-${Math.floor(agent.grid_y / 12)}<br/>
@@ -179,14 +220,20 @@ async function init() {
     }
     if (event.type === "qwen_usage") dashboard.updateQwen(event.payload as never);
     if (event.type === "task_decomposed" || event.type === "messenger_propose") {
-      api("/canvas").then((c) => dashboard.updateTasks(c));
+      api<ProjectCanvas>("/canvas").then((c) => dashboard.updateTasks(c));
     }
     if (event.tick) tickLabel.textContent = `Tick ${event.tick}`;
     if (event.type === "phase_change") phaseLabel.textContent = String(event.payload.design_phase ?? "?");
     if (event.type === "auditor_regret") regretLabel.textContent = `Regret ${(event.payload.regret as number).toFixed(2)}`;
     if (event.type === "sim_complete") {
       modeLabel.textContent = String(event.payload.mode);
-      api("/metrics").then((m) => { if (m.comparison) dashboard.updateMetrics(m.comparison); });
+      api<{ comparison?: ComparisonMetrics }>("/metrics").then((m) => {
+        if (m.comparison) dashboard.updateMetrics(m.comparison);
+      });
+    }
+    if (event.type === "sim_error") {
+      activeGoalEl.textContent = `Simulation error: ${String(event.payload.message ?? "unknown")}`;
+      modeLabel.textContent = "Error";
     }
   });
 }

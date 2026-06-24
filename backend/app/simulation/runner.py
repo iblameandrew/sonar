@@ -71,14 +71,10 @@ class SimulationRunner:
         agent_count: int = 48,
         user_prompt: str | None = None,
     ) -> SimulationState:
-        async with self._lock:
-            if self._task and not self._task.done():
-                self._task.cancel()
-                try:
-                    await self._task
-                except asyncio.CancelledError:
-                    pass
+        if self._task and not self._task.done():
+            self._task.cancel()
 
+        async with self._lock:
             engine.playbook_store.playbook = SocialPlaybook()
             engine.custodian.weights = {}
             self.execution_mode = mode
@@ -90,14 +86,10 @@ class SimulationRunner:
             return self.state
 
     async def start_baseline(self, max_ticks: int = 50) -> dict[str, Any]:
-        async with self._lock:
-            if self._task and not self._task.done():
-                self._task.cancel()
-                try:
-                    await self._task
-                except asyncio.CancelledError:
-                    pass
+        if self._task and not self._task.done():
+            self._task.cancel()
 
+        async with self._lock:
             self.execution_mode = "baseline"
             canvas = create_project_canvas()
             self.baseline_state = {
@@ -167,8 +159,22 @@ class SimulationRunner:
                     SimEvent(type="sim_complete", tick=self.state["tick"], payload={"mode": "society"})
                 )
                 break
-            async with self._lock:
+            try:
                 await self._run_single_tick()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                tick = self.state["tick"] if self.state else 0
+                await self.event_queue.put(
+                    SimEvent(
+                        type="sim_error",
+                        tick=tick,
+                        payload={"message": str(exc)},
+                    )
+                )
+                if self.state:
+                    self.state["running"] = False
+                break
             delay = 1.0 / max(self.state.get("speed", 1.0), 0.1)
             await asyncio.sleep(delay)
 
@@ -213,14 +219,23 @@ class SimulationRunner:
         self.baseline_state["tick"] = tick + 1
 
     async def _run_single_tick(self) -> SimulationState:
-        assert self.state is not None
-        config = {"configurable": {"thread_id": self.thread_id}}
-        result = await self.graph.ainvoke(self.state, config)
-        events = result.get("events", [])
-        for event in events:
-            await self.event_queue.put(event)
-        self.state = result  # type: ignore[assignment]
-        return self.state
+        async with self._lock:
+            if not self.state:
+                raise RuntimeError("No simulation state")
+            state = self.state
+            thread_id = self.thread_id
+
+        config = {"configurable": {"thread_id": thread_id}}
+        result = await self.graph.ainvoke(state, config)
+
+        async with self._lock:
+            if self.state is not state:
+                return state  # type: ignore[return-value]
+            events = result.get("events", [])
+            for event in events:
+                await self.event_queue.put(event)
+            self.state = result  # type: ignore[assignment]
+            return self.state
 
     async def event_stream(self) -> AsyncGenerator[str, None]:
         while True:

@@ -1,10 +1,4 @@
-import {
-  clearStoredApiKey,
-  getStoredApiKey,
-  isRememberEnabled,
-  saveApiKey,
-  setRememberEnabled,
-} from "../storage/apiKeyStorage";
+import { getStoredApiKey, saveApiKey } from "../storage/apiKeyStorage";
 import type { Agent, ColonyInfo, ComparisonMetrics, NegotiationRound, ProjectCanvas, SimEvent } from "../types";
 import { DASHBOARD_ROLES, roleLabel } from "../agentRoles";
 import type { ColonyScene } from "../scene/colony-scene";
@@ -110,11 +104,8 @@ export class Dashboard {
   }
 
   private initApiKey(): void {
-    this.rememberKeyInput.checked = isRememberEnabled();
-
-    this.rememberKeyInput.addEventListener("change", () => {
-      setRememberEnabled(this.rememberKeyInput.checked);
-    });
+    this.rememberKeyInput.checked = true;
+    this.rememberKeyInput.disabled = true;
 
     document.getElementById("btn-save-key")!.addEventListener("click", async () => {
       const key = this.apiInput.value.trim();
@@ -133,22 +124,22 @@ export class Dashboard {
 
     const status: QwenStatus = await res.json();
     this.renderQwen(status);
+    saveApiKey(key);
+    this.apiInput.placeholder = status.api_key_masked
+      ? `Saved ${status.api_key_masked} — paste to replace`
+      : "sk-… DashScope API key";
 
-    if (this.rememberKeyInput.checked) {
-      saveApiKey(key);
-    } else {
-      clearStoredApiKey();
-      setRememberEnabled(false);
-    }
-
-    this.apiInput.value = "";
     if (!opts?.silent) this.switchTab("settings");
     return status;
   }
 
   async restoreStoredApiKey(status?: QwenStatus): Promise<void> {
-    this.rememberKeyInput.checked = isRememberEnabled();
-    if (status?.configured) return;
+    if (status?.configured) {
+      if (status.api_key_masked) {
+        this.apiInput.placeholder = `Saved ${status.api_key_masked} — paste to replace`;
+      }
+      return;
+    }
 
     const stored = getStoredApiKey();
     if (!stored) return;

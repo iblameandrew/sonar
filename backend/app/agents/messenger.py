@@ -53,16 +53,18 @@ class Messenger:
                 task = next((t for t in canvas.subtasks if t.id == agent.current_task_id), None)
                 if task and task.status in ("assigned", "in_progress"):
                     task.status = "in_progress"
-                    content = qwen_factory.invoke_text(
-                        agent.role if agent.role in ROLE_ARTIFACT_KIND else FEED_FORWARD_AGENT,
-                        PROPOSE_PROMPT,
-                        {
-                            "name": agent.name, "role": agent.role,
-                            "verbs": agent.verbs, "nouns": agent.nouns,
-                            "task_title": task.title, "task_desc": task.description,
-                            "phase": phase,
-                        },
-                    )
+                    content: str | None = None
+                    if agent.role in ROLE_ARTIFACT_KIND and qwen_factory.is_configured():
+                        content = qwen_factory.invoke_text(
+                            agent.role,
+                            PROPOSE_PROMPT,
+                            {
+                                "name": agent.name, "role": agent.role,
+                                "verbs": agent.verbs, "nouns": agent.nouns,
+                                "task_title": task.title, "task_desc": task.description,
+                                "phase": phase,
+                            },
+                        )
                     if not content:
                         content = f"[{phase}] {agent.name} proposes solution for {task.title}"
 
