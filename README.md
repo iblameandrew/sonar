@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/banner.jpg" alt="VoxForge — Agent Society Colony" width="100%" />
+  <img src="docs/voxforge-readme-banner.jpg" alt="VoxForge — Agent Society Colony" width="100%" />
 </p>
 
 <h1 align="center">VoxForge</h1>
@@ -218,7 +218,7 @@ sociomorphic-computing/
 │       ├── ui/Dashboard.ts      # Tabbed dashboard + colony panel
 │       └── sse/client.ts        # Live event stream
 └── docs/
-    └── banner.jpg           # Retro voxel pixel-art banner
+    └── voxforge-readme-banner.jpg  # Retro voxel banner (Grok Imagine)
 ```
 
 **Backend:** FastAPI · LangGraph · LangChain · Pydantic · SSE-Starlette · scikit-learn (Attention embeddings)
