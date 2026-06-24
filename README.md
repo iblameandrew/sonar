@@ -6,12 +6,12 @@
 <p align="center"><strong>Agent society on a Conway grid</strong></p>
 <p align="center">
   A transformer architecture reinterpreted as living social physics —<br/>
-  gamified into conscious agents on a Conway ant-farm colony, orchestrated by LangGraph, powered by Qwen Cloud.
+  gamified into conscious agents on a Conway ant-farm colony, orchestrated by LangGraph, powered by Qwen Cloud or OpenRouter.
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Hackathon-Track%203%20Agent%20Society-43a047?style=flat-square" alt="Track 3" />
-  <img src="https://img.shields.io/badge/LLM-Qwen%20Cloud-4fc3f7?style=flat-square" alt="Qwen Cloud" />
+  <img src="https://img.shields.io/badge/LLM-Qwen%20%7C%20OpenRouter-4fc3f7?style=flat-square" alt="GenAI" />
   <img src="https://img.shields.io/badge/Stack-FastAPI%20%2B%20LangGraph%20%2B%20Three.js-8d6e63?style=flat-square" alt="Stack" />
   <img src="https://img.shields.io/badge/Agents-up%20to%20512-ff8f3f?style=flat-square" alt="Agents" />
 </p>
@@ -304,7 +304,7 @@ flowchart TB
 
 ### Regret, backward pass, and institutions
 
-**Tick number ≠ loss timing.** The HUD tick advances at `tick_started` — the *opening* of each LangGraph pass. **Regret (loss) is computed later in the same tick**, during **AUDIT**, after PERFORM, DECOMPOSE, and ATTEND complete. If you are on tick 5 but ATTEND is still scoring pairs (the slowest phase when Qwen is enabled), the regret label will not move until AUDIT finishes for that tick.
+**Tick number ≠ loss timing.** The HUD tick advances at `tick_started` — the *opening* of each LangGraph pass. **Regret (loss) is computed later in the same tick**, during **AUDIT**, after PERFORM, DECOMPOSE, and ATTEND complete. If you are on tick 5 but ATTEND is still scoring pairs (the slowest phase when an LLM backend is connected), the regret label will not move until AUDIT finishes for that tick.
 
 | Phase | Position in tick | Transformer role | What updates |
 |-------|------------------|------------------|--------------|
@@ -345,9 +345,9 @@ tN · phase CONFESS        ← backward pass + institutions
 | Novelty | Unique member set | Won't duplicate an institution for the same agent IDs |
 | Phase | **CONFESS** only | Same end-of-tick pass as backward flow and lifecycle |
 
-With the **minimum colony size (6 agents)** — six specialists, zero workers — you get roughly **30 attention pairs per tick** (specialist×all). Institutions typically appear around **tick 3–8**, depending on season temperature (`sharp` filters weak edges) and how many bonds reach `med`/`high`. They are unlikely on tick 1. In a **`diffuse` macro season**, an institution can **dissolve** if strong edges involving its members drop below 3.
+With the **minimum colony size (4 agents)** — four specialists, zero workers — you get roughly **12 attention pairs per tick** (specialist×all). Institutions typically appear around **tick 3–8**, depending on season temperature (`sharp` filters weak edges) and how many bonds reach `med`/`high`. They are unlikely on tick 1. In a **`diffuse` macro season**, an institution can **dissolve** if strong edges involving its members drop below 3.
 
-> **Agent count floor:** The UI and backend enforce `agent_count ≥ 6` (`create_colony_agents` clamps to 6–512). Below that, the colony still runs six specialists.
+> **Agent count floor:** The UI and backend enforce `agent_count ≥ 4` (`create_colony_agents` clamps to 4–512).
 
 ### Architecture disagreements
 
@@ -373,7 +373,7 @@ The first two agents in the roster act as **disputants**. The resolver mediates 
 | **Outcome** | `compromise`, `voting`, or similar |
 | **Decision** | Final resolution text, appended to the project canvas |
 
-With Qwen enabled, the `Intervention Agent` generates topic and wording from regret, the audit narrative, and recent negotiations. Without an API key, the heuristic fallback is literally titled **“Architecture disagreement”** — e.g. *modular LangGraph* vs *shared canvas*, resolved by voting.
+With GenAI connected, the `Intervention Agent` generates topic and wording from regret, the audit narrative, and recent negotiations. Without an API key, the heuristic fallback is literally titled **“Architecture disagreement”** — e.g. *modular LangGraph* vs *shared canvas*, resolved by voting.
 
 **Artifacts produced**
 
@@ -427,14 +427,16 @@ Workers fill the meadow with foraging, patrol, and relay behaviors — scaling t
 
 - Python 3.11+
 - Node.js 18+
-- [DashScope API key](https://dashscope.aliyun.com/) for Qwen Cloud (optional for UI; required for LLM calls)
+- **GenAI API key** (optional for UI; required for LLM calls):
+  - [DashScope](https://dashscope.aliyun.com/) (Qwen Cloud), or
+  - [OpenRouter](https://openrouter.ai/keys) (any compatible model slug)
 
 ### 1. Backend
 
 ```bash
 cd backend
 pip install -e .
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8001
 ```
 
 ### 2. Frontend
@@ -449,52 +451,73 @@ npm run dev
 
 **http://localhost:5173**
 
-The Vite dev server proxies `/api` → `http://localhost:8000`.
+The Vite dev server proxies `/api` → `http://localhost:8001`. Use **5173** in development (not `:8000` directly) so the UI and API stay in sync.
 
 ---
 
 ## Demo walkthrough
 
-1. **Settings** → paste your DashScope API key → **Connect**
-2. **Controls** → set colony size (default 48) → **Run Society**
+1. **Settings** → choose **Qwen Cloud** or **OpenRouter** → set model slug (OpenRouter) → paste API key → **Connect**
+2. **Controls** → set colony size (default 48) and tick budget → **Deploy Colony**
 3. **Colony** tab → watch minimap, sectors, and agent registry populate
 4. **Metrics** tab → compare society vs baseline after both runs
 5. **Inject Conflict** → trigger the conflict-resolution demo mid-run
-6. **Step** / **Advance Phase** / **Pause** for manual pacing
+6. **Reset Colony** → stop the sim and return to idle
+7. **Step** / **Advance Phase** / **Pause** for manual pacing
 
 ---
 
-## Qwen Cloud configuration
+## GenAI backend configuration
 
-All agent roles use **Qwen Cloud (DashScope)** exclusively.
+Colony supports two LLM backends via the OpenAI-compatible SDK (`langchain-openai`):
+
+| Backend | Provider | Key source | Model routing |
+|---------|----------|------------|---------------|
+| **DashScope** (default) | Qwen Cloud | [DashScope console](https://dashscope.aliyun.com/) | Per-role catalogue in Settings |
+| **OpenRouter** | OpenRouter | [openrouter.ai/keys](https://openrouter.ai/keys) | Single model slug for all agents (default `nex-agi/nex-n2-pro`) |
+
+**Settings tab**
+
+1. Pick **Provider** (DashScope or OpenRouter).
+2. For OpenRouter, set **Model slug** (e.g. `nex-agi/nex-n2-pro`).
+3. Paste API key → **Connect** (one validation attempt; no retry loops).
+4. For DashScope only: override models per role in the catalogue grid.
+
+Keys persist in browser `localStorage` (separate keys per provider) and restore on reload.
 
 ```bash
 # Environment (optional — can also set via UI)
-DASHSCOPE_API_KEY=sk-...
-QWEN_API_KEY=sk-...                              # alias
-QWEN_MODEL=qwen3.6-flash-2026-04-02              # default for all roles (pinned)
+GENAI_BACKEND=dashscope                            # or openrouter
+DASHSCOPE_API_KEY=sk-...                           # Qwen Cloud
+QWEN_API_KEY=sk-...                                # alias for DashScope
+OPENROUTER_API_KEY=sk-or-...                       # OpenRouter
+OPENROUTER_MODEL=nex-agi/nex-n2-pro                # default slug when using OpenRouter
+QWEN_MODEL=qwen3.6-flash-2026-04-02                # default per-role model (DashScope)
 ```
 
-Per-role overrides are available in the **Settings** tab. The dashboard loads the current **Qwen3.x catalogue** from the API (flagship, balanced, fast, vision, coder, and legacy models).
+**DashScope defaults (June 2026):** every role starts on **`qwen3.6-flash-2026-04-02`**. Override per role in Settings for heavier models (e.g. `qwen3.7-max-2026-06-08` for reasoning, `qwen2.5-coder-32b-instruct` for code).
 
-Default mapping (June 2026): every role starts on **`qwen3.6-flash-2026-04-02`**. Override per role in Settings if you need heavier models (e.g. `qwen3.7-max-2026-06-08` for reasoning, `qwen2.5-coder-32b-instruct` for code, `qwen3-vl-plus` for vision).
+Without a valid API key, agents run in **heuristic mode** (audit, negotiation, and conflict text use fallbacks).
 
 ### API endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/health` | Service health |
+| `GET` | `/api/health` | Service health (`api_version: genai-v2`) |
 | `GET` | `/api/state` | Full simulation snapshot + colony stats |
 | `GET` | `/api/stream` | SSE event stream |
-| `POST` | `/api/sim/society` | Start society run `{ max_ticks, speed, agent_count }` |
+| `POST` | `/api/sim/society` | Start society run `{ max_ticks, speed, agent_count, prompt }` |
 | `POST` | `/api/sim/baseline` | Start baseline run |
+| `POST` | `/api/sim/reset` | Stop sim and return to idle |
 | `POST` | `/api/sim/inject-conflict` | Force conflict resolution |
 | `POST` | `/api/sim/step` | Advance one tick |
 | `POST` | `/api/sim/pause` | Toggle pause |
 | `GET` | `/api/metrics` | Society vs baseline comparison |
-| `GET` | `/api/qwen/status` | Provider status & usage |
-| `POST` | `/api/qwen/api-key` | Set API key for session |
-| `POST` | `/api/qwen/configure` | Per-role model override |
+| `GET` | `/api/qwen/status` | GenAI provider status & usage |
+| `POST` | `/api/qwen/setup` | Set backend + model slug |
+| `POST` | `/api/genai/configure` | Alias for `/api/qwen/setup` |
+| `POST` | `/api/qwen/api-key` | Connect API key `{ api_key, backend?, model_slug? }` |
+| `POST` | `/api/qwen/configure` | Per-role model override (DashScope only) |
 
 ---
 
@@ -507,7 +530,7 @@ colony/
 │       ├── agents/          # Attention, Auditor, Negotiator, …
 │       ├── graph/           # LangGraph simulation graph
 │       ├── grid.py          # 96×96 allocation, sectors, walkability
-│       ├── llm/             # QwenLLMFactory (DashScope)
+│       ├── llm/             # QwenLLMFactory (DashScope + OpenRouter)
 │       ├── lifecycle/       # Birth/death on dependency graph
 │       ├── simulation/      # Async runner + SSE queue
 │       └── api/routes.py    # FastAPI endpoints
@@ -535,7 +558,7 @@ After running both modes, the dashboard compares:
 - **Conflicts detected / resolved**
 - **Negotiation rounds**
 - **Transparency events** (SSE + playbook entries)
-- **Token usage** (Qwen Cloud)
+- **Token usage** (active GenAI provider)
 - **Colony progress** (%)
 
 The society is designed to win on **quality and transparency** while the baseline wins on raw iteration count — making the tradeoff visible and measurable.
@@ -549,7 +572,7 @@ The society is designed to win on **quality and transparency** while the baselin
 cd frontend && npm run build
 
 # Backend health check
-curl http://localhost:8000/api/health
+curl http://localhost:8001/api/health
 ```
 
 Grid constants live in `backend/app/grid.py` and mirror `frontend/src/scene/colony-scene.ts` (`WORLD_SIZE=96`, `TREE_SPACING=8`).
