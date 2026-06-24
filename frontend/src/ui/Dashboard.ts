@@ -8,7 +8,29 @@ import {
 import type { Agent, ColonyInfo, ComparisonMetrics, NegotiationRound, ProjectCanvas, SimEvent } from "../types";
 import type { ColonyScene } from "../scene/ColonyScene";
 
-const MODELS = ["qwen-max", "qwen-plus", "qwen2.5-72b-instruct", "qwen2.5-coder-32b-instruct"];
+export interface QwenModelEntry {
+  id: string;
+  label: string;
+  category: string;
+  best_for: string;
+}
+
+const FALLBACK_MODELS: QwenModelEntry[] = [
+  { id: "qwen3.7-max-2026-06-08", label: "Qwen3.7 Max", category: "flagship", best_for: "Reasoning" },
+  { id: "qwen3.7-plus-2026-06-08", label: "Qwen3.7 Plus", category: "balanced", best_for: "General use" },
+  { id: "qwen3.6-plus-2026-04-02", label: "Qwen3.6 Plus", category: "balanced", best_for: "Balanced agents" },
+  { id: "qwen2.5-coder-32b-instruct", label: "Qwen2.5 Coder 32B", category: "coder", best_for: "Code" },
+];
+
+const CATEGORY_LABELS: Record<string, string> = {
+  flagship: "Flagship",
+  balanced: "Balanced",
+  fast: "Fast",
+  vision: "Vision",
+  coder: "Coder",
+  legacy: "Legacy",
+};
+
 const ROLES = [
   "auditor", "attention", "reformer", "confessor", "messenger",
   "decomposer", "negotiator", "conflict_resolver", "baseline",
@@ -21,6 +43,7 @@ export interface QwenStatus {
   api_key_masked: string;
   status_message: string;
   default_model: string;
+  available_models?: QwenModelEntry[];
   roles: Record<string, { model: string; temperature: number }>;
   usage: {
     total_calls: number;
@@ -187,9 +210,7 @@ export class Dashboard {
     if (!this.qwenModelsEl.dataset.built) {
       this.qwenModelsEl.innerHTML = ROLES.map((role) => {
         const cfg = status.roles[role];
-        const opts = MODELS.map(
-          (m) => `<option value="${m}" ${cfg?.model === m ? "selected" : ""}>${m}</option>`
-        ).join("");
+        const opts = this.buildModelOptions(status, cfg?.model);
         return `<div class="model-row"><label>${role}</label><select data-role="${role}">${opts}</select></div>`;
       }).join("");
       this.qwenModelsEl.dataset.built = "1";
@@ -204,6 +225,32 @@ export class Dashboard {
         });
       });
     }
+  }
+
+  private buildModelOptions(status: QwenStatus, current?: string): string {
+    const catalog = status.available_models?.length ? status.available_models : FALLBACK_MODELS;
+    const ids = new Set(catalog.map((m) => m.id));
+    const byCategory = new Map<string, QwenModelEntry[]>();
+    for (const m of catalog) {
+      const list = byCategory.get(m.category) ?? [];
+      list.push(m);
+      byCategory.set(m.category, list);
+    }
+
+    let html = "";
+    for (const [category, models] of byCategory) {
+      const label = CATEGORY_LABELS[category] ?? category;
+      html += `<optgroup label="${label}">`;
+      for (const m of models) {
+        const selected = current === m.id ? " selected" : "";
+        html += `<option value="${m.id}"${selected}>${m.label}</option>`;
+      }
+      html += "</optgroup>";
+    }
+    if (current && !ids.has(current)) {
+      html += `<optgroup label="Custom"><option value="${current}" selected>${current}</option></optgroup>`;
+    }
+    return html;
   }
 
   updateMetrics(metrics: ComparisonMetrics): void {

@@ -245,17 +245,22 @@ All agent roles use **Qwen Cloud (DashScope)** exclusively.
 ```bash
 # Environment (optional — can also set via UI)
 DASHSCOPE_API_KEY=sk-...
-QWEN_API_KEY=sk-...          # alias
-QWEN_MODEL=qwen-max          # default model
+QWEN_API_KEY=sk-...                              # alias
+QWEN_MODEL=qwen3.7-max-2026-06-08                # default flagship (pinned)
 ```
 
-Per-role overrides are available in the **Settings** tab. Suggested mapping:
+Per-role overrides are available in the **Settings** tab. The dashboard loads the current **Qwen3.x catalogue** from the API (flagship, balanced, fast, vision, coder, and legacy models).
+
+Suggested mapping (June 2026):
 
 | Role | Model |
 |------|-------|
-| Auditor, Attention | `qwen-max` |
-| Coding specialists | `qwen2.5-coder-32b-instruct` |
-| General agents | `qwen-plus` |
+| Auditor, Attention, Reformer, Negotiator, Conflict Resolver, Baseline | `qwen3.7-max-2026-06-08` |
+| Messenger, Decomposer | `qwen3.7-plus-2026-06-08` |
+| Confessor, Custodian | `qwen3.6-plus-2026-04-02` |
+| Voxel Architect, Orchestrator, Integrator | `qwen2.5-coder-32b-instruct` |
+| Fast / lightweight agents | `qwen3.6-flash-2026-04-02` |
+| Vision / UI tasks | `qwen3-vl-plus` or `qwen3-vl-max` |
 
 ### API endpoints
 

@@ -11,10 +11,19 @@ from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
+from app.llm.models import (
+    DEFAULT_MODEL as CATALOG_DEFAULT,
+    QWEN3_6_PLUS,
+    QWEN3_7_MAX,
+    QWEN3_7_PLUS,
+    QWEN_CODER,
+    catalog_for_api,
+)
+
 T = TypeVar("T", bound=BaseModel)
 
 DASHSCOPE_BASE = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-DEFAULT_MODEL = os.getenv("QWEN_MODEL", "qwen-max")
+DEFAULT_MODEL = os.getenv("QWEN_MODEL", CATALOG_DEFAULT)
 
 CODING_ROLES = {"voxel_architect", "integrator", "orchestrator"}
 REASONING_ROLES = {"auditor", "attention", "critic_evaluator", "conflict_resolver"}
@@ -72,69 +81,69 @@ class QwenLLMFactory:
     def _default_configs(self) -> dict[str, RoleConfig]:
         return {
             "auditor": RoleConfig(
-                model="qwen-max", temperature=0.3, max_tokens=1024,
+                model=QWEN3_7_MAX, temperature=0.3, max_tokens=1024,
                 system_prompt="You are THE AUDITOR — measure regret and engineering quality.",
             ),
             "attention": RoleConfig(
-                model="qwen-max", temperature=0.7, max_tokens=512,
+                model=QWEN3_7_MAX, temperature=0.7, max_tokens=512,
                 system_prompt="You are THE ATTENTION AGENT — qualitative social physics.",
             ),
             "reformer": RoleConfig(
-                model="qwen-max", temperature=0.5, max_tokens=1024,
+                model=QWEN3_7_MAX, temperature=0.5, max_tokens=1024,
                 system_prompt="You are THE REFORMER — gradient descent as social change.",
             ),
             "confessor": RoleConfig(
-                model="qwen-plus", temperature=0.4, max_tokens=512,
+                model=QWEN3_6_PLUS, temperature=0.4, max_tokens=512,
                 system_prompt="You are THE CONFESSOR — propagate lessons backward.",
             ),
             "messenger": RoleConfig(
-                model="qwen-plus", temperature=0.6, max_tokens=1024,
+                model=QWEN3_7_PLUS, temperature=0.6, max_tokens=1024,
                 system_prompt="You are THE MESSENGER — carry proposals and code artifacts.",
             ),
             "custodian": RoleConfig(
-                model="qwen-plus", temperature=0.2, max_tokens=512,
+                model=QWEN3_6_PLUS, temperature=0.2, max_tokens=512,
                 system_prompt="You are THE CUSTODIAN — maintain persistent social memory.",
             ),
             "decomposer": RoleConfig(
-                model="qwen-max", temperature=0.5, max_tokens=1024,
+                model=QWEN3_7_PLUS, temperature=0.5, max_tokens=1024,
                 system_prompt="You decompose Sociomorphic Computing goals into subtasks.",
             ),
             "negotiator": RoleConfig(
-                model="qwen-max", temperature=0.7, max_tokens=1024,
+                model=QWEN3_7_MAX, temperature=0.7, max_tokens=1024,
                 system_prompt="You mediate structured negotiation between specialist agents.",
             ),
             "conflict_resolver": RoleConfig(
-                model="qwen-max", temperature=0.4, max_tokens=1024,
+                model=QWEN3_7_MAX, temperature=0.4, max_tokens=1024,
                 system_prompt="You resolve architecture conflicts via compromise or voting.",
             ),
             "voxel_architect": RoleConfig(
-                model="qwen2.5-coder-32b-instruct", temperature=0.5, max_tokens=2048,
+                model=QWEN_CODER, temperature=0.5, max_tokens=2048,
                 system_prompt="You are the Voxel Architect — Three.js pixel-art visualization expert.",
             ),
             "orchestrator": RoleConfig(
-                model="qwen2.5-72b-instruct", temperature=0.5, max_tokens=2048,
+                model=QWEN_CODER, temperature=0.5, max_tokens=2048,
                 system_prompt="You are the Orchestrator — LangGraph and SSE expert.",
             ),
             "optimizer": RoleConfig(
-                model="qwen-max", temperature=0.3, max_tokens=1024,
+                model=QWEN3_7_MAX, temperature=0.3, max_tokens=1024,
                 system_prompt="You are the Optimizer — benchmarking and efficiency expert.",
             ),
             "integrator": RoleConfig(
-                model="qwen2.5-coder-32b-instruct", temperature=0.5, max_tokens=2048,
+                model=QWEN_CODER, temperature=0.5, max_tokens=2048,
                 system_prompt="You are the Integrator — FastAPI + frontend glue expert.",
             ),
             "ux_weaver": RoleConfig(
-                model="qwen-plus", temperature=0.6, max_tokens=1024,
+                model=QWEN3_6_PLUS, temperature=0.6, max_tokens=1024,
                 system_prompt="You are the UX Weaver — dashboard and judge-friendly UI expert.",
             ),
             "critic_evaluator": RoleConfig(
-                model="qwen-max", temperature=0.2, max_tokens=1024,
+                model=QWEN3_7_MAX, temperature=0.2, max_tokens=1024,
                 system_prompt="You are the Critic — evaluate society vs baseline metrics.",
             ),
-            "institution": RoleConfig(model="qwen-plus", temperature=0.6, max_tokens=512),
-            "raptor": RoleConfig(model="qwen-plus", temperature=0.5, max_tokens=1024),
+            "institution": RoleConfig(model=QWEN3_6_PLUS, temperature=0.6, max_tokens=512),
+            "raptor": RoleConfig(model=QWEN3_6_PLUS, temperature=0.5, max_tokens=1024),
             "baseline": RoleConfig(
-                model=DEFAULT_MODEL, temperature=0.7, max_tokens=2048,
+                model=QWEN3_7_MAX, temperature=0.7, max_tokens=2048,
                 system_prompt="You are a single powerful agent building Sociomorphic Computing alone.",
             ),
             "default": RoleConfig(model=DEFAULT_MODEL, temperature=0.7, max_tokens=2048),
@@ -328,6 +337,7 @@ class QwenLLMFactory:
                 else "Set your DashScope API key in the dashboard"
             ),
             "default_model": DEFAULT_MODEL,
+            "available_models": catalog_for_api(),
             "roles": {
                 role: {"model": cfg.model, "temperature": cfg.temperature}
                 for role, cfg in self._configs.items()
