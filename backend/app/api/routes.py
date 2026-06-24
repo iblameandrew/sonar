@@ -26,7 +26,7 @@ router = APIRouter(prefix="/api")
 class StartRequest(BaseModel):
     max_ticks: int = Field(default=12, ge=4, le=500)
     speed: float = Field(default=1.0, ge=0.1, le=10.0)
-    agent_count: int = Field(default=48, ge=6, le=512)
+    agent_count: int = Field(default=48, ge=4, le=512)
     prompt: str = Field(default="", max_length=4000)
     attention_policy: dict[str, Any] | None = None
 
@@ -142,6 +142,14 @@ async def run_society(req: StartRequest) -> dict[str, Any]:
     policy = normalize_policy(req.attention_policy)
 
     async def _launch() -> None:
+        await runner.start(
+            req.max_ticks,
+            req.speed,
+            mode="society",
+            agent_count=req.agent_count,
+            user_prompt=prompt,
+            attention_policy=policy,
+        )
         await runner.event_queue.put(
             SimEvent(
                 type="attention_policy_configured",
@@ -156,16 +164,13 @@ async def run_society(req: StartRequest) -> dict[str, Any]:
             SimEvent(
                 type="simulation_started",
                 tick=0,
-                payload={"goal": canvas.goal, "agent_count": req.agent_count},
+                payload={
+                    "goal": canvas.goal,
+                    "agent_count": req.agent_count,
+                    "max_ticks": req.max_ticks,
+                    "run_id": runner.run_id,
+                },
             )
-        )
-        await runner.start(
-            req.max_ticks,
-            req.speed,
-            mode="society",
-            agent_count=req.agent_count,
-            user_prompt=prompt,
-            attention_policy=policy,
         )
 
     asyncio.create_task(_launch())

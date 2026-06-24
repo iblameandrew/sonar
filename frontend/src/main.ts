@@ -31,6 +31,7 @@ let liveMaxTicks = 12;
 /** Raw graph phase from API/SSE only — never a formatted display string. */
 let livePhaseRaw = "idle";
 let livePlaybookLen = 0;
+let currentRunId = "";
 
 async function api<T = Record<string, unknown>>(path: string, method = "GET", body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -243,6 +244,7 @@ function applyLiveEvent(event: SimEvent): void {
     );
   }
   if (event.type === "simulation_started") {
+    currentRunId = String(event.payload.run_id ?? "");
     liveTick = 0;
     livePhaseRaw = "STARTING";
     livePlaybookLen = 0;
@@ -283,11 +285,14 @@ function applyLiveEvent(event: SimEvent): void {
   if (event.type === "phase_change") phaseLabel.textContent = String(event.payload.design_phase ?? "?");
   if (event.type === "auditor_regret") regretLabel.textContent = `Regret ${(event.payload.regret as number).toFixed(2)}`;
   if (event.type === "sim_complete") {
+    const runId = String(event.payload.run_id ?? "");
+    if (runId && currentRunId && runId !== currentRunId) return;
     liveTick = Math.max(liveTick, event.tick);
     livePhaseRaw = "complete";
     setColonyRunning(false);
+    const edges = Number(event.payload.playbook_edges ?? 0);
     const answer = String(event.payload.final_answer ?? "");
-    if (answer) showFinalAnswer(answer, { autoOpen: true });
+    if (answer && edges > 0) showFinalAnswer(answer, { autoOpen: true });
     stopStatePolling();
     void finalizeFromServer(true);
     api<{ comparison?: ComparisonMetrics }>("/metrics").then((m) => {
@@ -334,7 +339,11 @@ async function deployColony() {
     }
 
     sse.reconnect();
-    answerModal.setViewAnswerButtonVisible(false);
+    answerModal.clearAndHide();
+    currentRunId = "";
+    liveTick = 0;
+    livePlaybookLen = 0;
+    livePhaseRaw = "STARTING";
     dashboard.switchTab("activity");
     dashboard.updateStreamStatus(false, "awaiting events");
 
@@ -487,7 +496,7 @@ async function init() {
     }
 
     await hydrateFromState(state);
-    if (state.final_answer) {
+    if (state.final_answer && !isColonyActive(state)) {
       showFinalAnswer(state.final_answer, { autoOpen: false });
     }
     setColonyRunning(isColonyActive(state));

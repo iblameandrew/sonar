@@ -13,6 +13,7 @@ def build_final_answer(state: SimulationState, forward_synthesis: str | None = N
     done = sum(1 for t in canvas.subtasks if t.status == "done")
     total = max(len(canvas.subtasks), 1)
 
+    edges = len(state["playbook"].entries)
     lines = [
         "# Colony Answer",
         "",
@@ -22,8 +23,8 @@ def build_final_answer(state: SimulationState, forward_synthesis: str | None = N
         "",
         "---",
         "",
-        f"*Terminal forward pass · {state.get('tick', 0)} ticks · "
-        f"{done}/{total} subtasks complete · "
+        f"*Terminal forward pass after {state.get('tick', 0)} ticks · "
+        f"{edges} attention edges · {done}/{total} subtasks · "
         f"quality {max(0.0, 1.0 - state.get('regret', 0.0)):.0%}*",
     ]
     return "\n".join(lines)

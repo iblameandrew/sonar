@@ -117,7 +117,7 @@ export class Dashboard {
 
   getAgentCount(): number {
     const n = parseInt(this.agentCountInput?.value ?? "48", 10);
-    return Number.isFinite(n) ? Math.max(6, Math.min(512, n)) : 48;
+    return Number.isFinite(n) ? Math.max(4, Math.min(512, n)) : 48;
   }
 
   getMaxTicks(): number {

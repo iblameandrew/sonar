@@ -35,6 +35,7 @@ class SimulationRunner:
         self.live_phase: str = "idle"
         self.live_attention: dict[str, int] = {"done": 0, "total": 0, "matched": 0}
         self.final_answer: str = ""
+        self.run_id: str = ""
 
     def reset_live_progress(self) -> None:
         self.live_phase = "idle"
@@ -94,10 +95,16 @@ class SimulationRunner:
             self._task.cancel()
 
         async with self._lock:
+            while True:
+                try:
+                    self.event_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
             engine.playbook_store.playbook = SocialPlaybook()
             engine.custodian.weights = {}
             self.reset_live_progress()
             self.final_answer = ""
+            self.run_id = str(uuid.uuid4())
             self.execution_mode = mode
             self.thread_id = str(uuid.uuid4())
             self.state = self._initial_state(
@@ -195,21 +202,27 @@ class SimulationRunner:
                 await asyncio.sleep(0.2)
                 continue
             if self.state["tick"] >= self.state["max_ticks"]:
-                self.state["running"] = False
-                forward = await asyncio.to_thread(run_final_forward_pass, self.state)
-                self.final_answer = build_final_answer(self.state, forward)
-                await self.event_queue.put(
-                    SimEvent(
-                        type="sim_complete",
-                        tick=self.state["tick"],
-                        payload={
-                            "mode": "society",
-                            "final_answer": self.final_answer,
-                            "goal": self.state["canvas"].goal,
-                        },
+                if not self._can_finalize(self.state) and self.state["tick"] < self.state["max_ticks"] + 6:
+                    pass  # run another tick — attention/playbook not ready yet
+                else:
+                    self.state["running"] = False
+                    self.live_phase = "TERMINAL_FORWARD"
+                    forward = await asyncio.to_thread(run_final_forward_pass, self.state)
+                    self.final_answer = build_final_answer(self.state, forward)
+                    await self.event_queue.put(
+                        SimEvent(
+                            type="sim_complete",
+                            tick=self.state["tick"],
+                            payload={
+                                "mode": "society",
+                                "final_answer": self.final_answer,
+                                "goal": self.state["canvas"].goal,
+                                "run_id": self.run_id,
+                                "playbook_edges": len(self.state["playbook"].entries),
+                            },
+                        )
                     )
-                )
-                break
+                    break
             try:
                 await self._run_single_tick()
             except asyncio.CancelledError:
@@ -321,6 +334,13 @@ class SimulationRunner:
                 elif self.baseline_state:
                     tick = self.baseline_state["tick"]
                 yield json.dumps({"type": "heartbeat", "tick": tick})
+
+    def _can_finalize(self, state: SimulationState) -> bool:
+        """Require attention edges before terminal forward pass."""
+        agents = len(state["agents"])
+        edges = len(state["playbook"].entries)
+        min_edges = max(2, min(agents, 6))
+        return edges >= min_edges
 
     def _sync_running_flag(self) -> None:
         """Clear stale running=True when no live asyncio task is driving the loop."""

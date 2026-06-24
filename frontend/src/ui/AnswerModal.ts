@@ -30,6 +30,13 @@ export class AnswerModal {
     document.body.style.overflow = "";
   }
 
+  clearAndHide(): void {
+    this.lastMarkdown = "";
+    this.body.innerHTML = "";
+    this.hide();
+    this.setViewAnswerButtonVisible(false);
+  }
+
   setMarkdown(markdown: string): void {
     this.lastMarkdown = markdown;
   }

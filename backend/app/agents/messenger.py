@@ -67,7 +67,13 @@ class Messenger:
                             },
                         )
                     if not content:
-                        content = f"[{phase}] {agent.name} proposes solution for {task.title}"
+                        verb = agent.verbs[0] if agent.verbs else "work"
+                        noun = agent.nouns[0] if agent.nouns else "deliverable"
+                        traits = ", ".join(agent.adjectives[:2]) or "focused"
+                        content = (
+                            f"{agent.name} ({traits}): To advance «{task.title}» toward "
+                            f"«{purpose[:80]}», I {verb} the {noun} — {task.description[:120]}"
+                        )
 
                     kind = ROLE_ARTIFACT_KIND.get(agent.role, "code")
                     art = Artifact(

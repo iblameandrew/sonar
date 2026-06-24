@@ -94,12 +94,14 @@
               <h2>Simulation</h2>
               <label class="field-row">
                 <span>Colony size</span>
-                <input id="agent-count" type="number" min="6" max="512" value="48" />
+                <input id="agent-count" type="number" min="4" max="512" value="48" />
               </label>
               <label class="field-row">
                 <span>Ticks</span>
                 <select id="max-ticks">
+                  <option value="8">8 — quick</option>
                   <option value="12" selected>12 — meaningful minimum</option>
+                  <option value="15">15 — balanced</option>
                   <option value="24">24 — standard</option>
                   <option value="40">40 — deep run</option>
                   <option value="80">80 — full marathon</option>

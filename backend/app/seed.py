@@ -41,7 +41,7 @@ INITIAL_SUBTASKS = [
 
 
 def create_colony_agents(count: int = 48) -> list[QualitativeAgent]:
-    count = max(6, min(count, 512))
+    count = max(4, min(count, 512))
     positions = allocate_positions(count)
     agents: list[QualitativeAgent] = []
 
