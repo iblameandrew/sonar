@@ -6,7 +6,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from app.roles import FEED_FORWARD_AGENT
 from app.llm.qwen_factory import qwen_factory
-from app.models.agent import QualitativeAgent
+from app.models.agent import QualitativeAgent, format_system_prompt
 from app.models.canvas import Artifact, ProjectCanvas
 from app.models.events import SimEvent
 from app.models.institution import Institution
@@ -16,7 +16,7 @@ PROPOSE_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "human",
-            "Agent: {name} ({role})\nVerbs: {verbs}\nNouns: {nouns}\n"
+            "System prompt:\n{system_prompt}\n\n"
             "Task: {task_title} — {task_desc}\nPhase: {phase}\n"
             "Write a concise engineering proposal or code skeleton for Colony (2-4 sentences).",
         ),
@@ -47,6 +47,7 @@ class Messenger:
         canvas = canvas.model_copy(deep=True)
         updated: list[QualitativeAgent] = []
 
+        purpose = canvas.goal
         for agent in agents:
             agent = agent.model_copy(deep=True)
             if agent.current_task_id:
@@ -54,13 +55,13 @@ class Messenger:
                 if task and task.status in ("assigned", "in_progress"):
                     task.status = "in_progress"
                     content: str | None = None
+                    sys_prompt = format_system_prompt(agent, purpose)
                     if agent.role in ROLE_ARTIFACT_KIND and qwen_factory.is_configured():
                         content = qwen_factory.invoke_text(
                             agent.role,
                             PROPOSE_PROMPT,
                             {
-                                "name": agent.name, "role": agent.role,
-                                "verbs": agent.verbs, "nouns": agent.nouns,
+                                "system_prompt": sys_prompt,
                                 "task_title": task.title, "task_desc": task.description,
                                 "phase": phase,
                             },

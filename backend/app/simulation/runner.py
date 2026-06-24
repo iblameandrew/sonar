@@ -16,7 +16,9 @@ from app.models.metrics import ComparisonMetrics, RunMetrics
 from app.models.state import SimulationState
 from app.grid import WORLD_SIZE, sector_id, total_walkable_cells
 from app.seed import create_colony_agents, create_project_canvas, ought_for_prompt
+from app.models.agent import format_system_prompt
 from app.synthesis.final_answer import build_final_answer
+from app.synthesis.final_forward import run_final_forward_pass
 
 
 class SimulationRunner:
@@ -194,7 +196,8 @@ class SimulationRunner:
                 continue
             if self.state["tick"] >= self.state["max_ticks"]:
                 self.state["running"] = False
-                self.final_answer = build_final_answer(self.state)
+                forward = await asyncio.to_thread(run_final_forward_pass, self.state)
+                self.final_answer = build_final_answer(self.state, forward)
                 await self.event_queue.put(
                     SimEvent(
                         type="sim_complete",
@@ -347,7 +350,7 @@ class SimulationRunner:
             "paused": s.get("paused", False),
             "max_ticks": s["max_ticks"],
             "speed": s["speed"],
-            "agents": [a.model_dump() for a in s["agents"]],
+            "agents": self._agents_for_api(s),
             "playbook": s["playbook"].to_matrix_summary(),
             "canvas": s["canvas"].model_dump(),
             "institutions": [i.model_dump() for i in s["institutions"]],
@@ -360,10 +363,15 @@ class SimulationRunner:
             "attention_policy_preview": preview_entries(s.get("attention_policy")),
             "live_phase": self.live_phase,
             "live_attention": dict(self.live_attention),
-            "final_answer": self.final_answer or (
-                build_final_answer(s) if not s["running"] else ""
-            ),
+            "final_answer": self.final_answer,
         }
+
+    def _agents_for_api(self, s: SimulationState) -> list[dict[str, Any]]:
+        purpose = str(s.get("ought_snapshot", {}).get("description", s["canvas"].goal))
+        return [
+            {**a.model_dump(), "system_prompt": format_system_prompt(a, purpose)}
+            for a in s["agents"]
+        ]
 
     def _colony_stats(self, agents: list) -> dict[str, Any]:
         sectors: dict[str, int] = {}

@@ -1,4 +1,5 @@
 import { SSEClient } from "./sse/client";
+import { formatSystemPrompt } from "./agentPrompt";
 import { roleLabel } from "./agentRoles";
 import type { Dashboard } from "./ui/Dashboard";
 import { AnswerModal } from "./ui/AnswerModal";
@@ -26,7 +27,7 @@ let colonyRunning = false;
 let pollTimer: number | null = null;
 let pollSnapshot = { tick: -1, playbookLen: 0, running: false };
 let liveTick = 0;
-let liveMaxTicks = 80;
+let liveMaxTicks = 12;
 /** Raw graph phase from API/SSE only — never a formatted display string. */
 let livePhaseRaw = "idle";
 let livePlaybookLen = 0;
@@ -62,6 +63,7 @@ function getPrompt(): string {
 
 function setActiveGoal(goal: string): void {
   activeGoalEl.textContent = goal ? `Solving: ${goal}` : "";
+  scene?.setColonyPurpose(goal);
 }
 
 function syncDeployButtons(): void {
@@ -244,7 +246,7 @@ function applyLiveEvent(event: SimEvent): void {
     liveTick = 0;
     livePhaseRaw = "STARTING";
     livePlaybookLen = 0;
-    liveMaxTicks = Number(event.payload.max_ticks ?? 80);
+    liveMaxTicks = Number(event.payload.max_ticks ?? 12);
     modeLabel.textContent = "Society";
     setColonyRunning(true);
     deployInFlight = false;
@@ -337,9 +339,10 @@ async function deployColony() {
     dashboard.updateStreamStatus(false, "awaiting events");
 
     const agentCount = dashboard.getAgentCount();
+    const maxTicks = dashboard.getMaxTicks();
     const attentionPolicy = dashboard.getAttentionPolicy();
     const started = await api<{ status?: string; goal?: string }>("/sim/society", "POST", {
-      max_ticks: 80,
+      max_ticks: maxTicks,
       speed: 1.5,
       agent_count: agentCount,
       prompt,
@@ -499,11 +502,11 @@ async function init() {
       if (!agent) { inspectPanel.classList.add("hidden"); return; }
       inspectPanel.classList.remove("hidden");
       api<{ incoming?: unknown[]; outgoing?: unknown[] }>(`/agents/${agent.id}`).then((deps) => {
+        const prompt = formatSystemPrompt(agent, activeGoalEl.textContent.replace(/^Solving: /, ""));
         inspectPanel.innerHTML = `
           <strong>${agent.name}</strong> · ${roleLabel(agent.role)}<br/>
           Zone ${Math.floor(agent.grid_x / 12)}-${Math.floor(agent.grid_y / 12)}<br/>
-          ${agent.verbs.join(" · ")}<br/>
-          <em>${agent.adjectives.join(", ")}</em><br/>
+          <pre class="inspect-prompt">${prompt.replace(/</g, "&lt;")}</pre>
           Deps: ${deps.incoming?.length ?? 0} in / ${deps.outgoing?.length ?? 0} out
         `;
       });

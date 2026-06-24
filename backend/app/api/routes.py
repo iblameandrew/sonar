@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api")
 
 
 class StartRequest(BaseModel):
-    max_ticks: int = Field(default=80, ge=1, le=500)
+    max_ticks: int = Field(default=12, ge=4, le=500)
     speed: float = Field(default=1.0, ge=0.1, le=10.0)
     agent_count: int = Field(default=48, ge=6, le=512)
     prompt: str = Field(default="", max_length=4000)

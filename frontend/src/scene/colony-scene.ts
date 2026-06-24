@@ -1,5 +1,6 @@
 /** Colony isometric zone-map scene (Three.js). */
 import * as THREE from "three";
+import { formatSystemPrompt } from "../agentPrompt";
 import type { Agent, DependencyEntry, LayerVisibility, SimEvent } from "../types";
 import { KIND_COLORS, ROLE_COLORS, STRENGTH_SCALE } from "../types";
 
@@ -97,8 +98,11 @@ export class ColonyScene {
   layers: LayerVisibility;
   onAgentSelect: ((agent: Agent | null) => void) | null = null;
   onMovement: ((agent: Agent, from: { x: number; y: number }) => void) | null = null;
+  private tooltipEl: HTMLElement | null;
+  private colonyPurpose = "";
 
   constructor(canvas: HTMLCanvasElement) {
+    this.tooltipEl = document.getElementById("cell-prompt-tooltip");
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(ECO.sky, 1);
@@ -204,6 +208,7 @@ export class ColonyScene {
     canvas.addEventListener("pointerdown", (e) => this.onPointerDown(e, canvas));
     canvas.addEventListener("pointermove", (e) => this.onPointerMove(e, canvas));
     canvas.addEventListener("pointerup", () => { this.dragging = false; });
+    canvas.addEventListener("pointerleave", () => this.hideCellTooltip());
     canvas.addEventListener("wheel", (e) => this.onWheel(e), { passive: false });
     canvas.addEventListener("click", (e) => this.onClick(e, canvas));
     window.addEventListener("resize", () => this.resize(canvas));
@@ -282,6 +287,10 @@ export class ColonyScene {
       if (!incoming.has(id)) this.removeAgent(id);
     }
     for (const a of agents) this.upsertAgent(a);
+  }
+
+  setColonyPurpose(goal: string): void {
+    this.colonyPurpose = goal.trim();
   }
 
   /** Blueprint voxels are metadata only — terrain shows agents, not decorative blocks. */
@@ -648,19 +657,55 @@ export class ColonyScene {
     canvas.setPointerCapture(e.pointerId);
   }
 
-  private onPointerMove(e: PointerEvent, _canvas: HTMLCanvasElement): void {
-    if (!this.dragging) return;
-    const dx = (e.clientX - this.dragStart.x) / this.zoom;
-    const dy = (e.clientY - this.dragStart.y) / this.zoom;
-    if (Math.abs(e.clientX - this.dragStart.x) > 4 || Math.abs(e.clientY - this.dragStart.y) > 4) {
-      this.didDrag = true;
+  private onPointerMove(e: PointerEvent, canvas: HTMLCanvasElement): void {
+    if (this.dragging) {
+      const dx = (e.clientX - this.dragStart.x) / this.zoom;
+      const dy = (e.clientY - this.dragStart.y) / this.zoom;
+      if (Math.abs(e.clientX - this.dragStart.x) > 4 || Math.abs(e.clientY - this.dragStart.y) > 4) {
+        this.didDrag = true;
+      }
+      this.panX = this.dragStart.panX - dx;
+      this.panZ = this.dragStart.panZ - dy;
+      const cx = WORLD_EXTENT / 2 + this.panX;
+      const cz = WORLD_EXTENT / 2 + this.panZ;
+      this.camera.position.set(cx + 18, 88, cz + 22);
+      this.camera.lookAt(cx, 0, cz);
+      this.hideCellTooltip();
+      return;
     }
-    this.panX = this.dragStart.panX - dx;
-    this.panZ = this.dragStart.panZ - dy;
-    const cx = WORLD_EXTENT / 2 + this.panX;
-    const cz = WORLD_EXTENT / 2 + this.panZ;
-    this.camera.position.set(cx + 18, 88, cz + 22);
-    this.camera.lookAt(cx, 0, cz);
+    this.updateCellHover(e, canvas);
+  }
+
+  private updateCellHover(e: PointerEvent, canvas: HTMLCanvasElement): void {
+    if (!this.tooltipEl) return;
+    const rect = canvas.getBoundingClientRect();
+    this.mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const hits = this.raycaster.intersectObject(this.zoneMesh);
+    if (!hits.length) {
+      this.hideCellTooltip();
+      return;
+    }
+    const gx = Math.max(0, Math.min(WORLD_SIZE - 1, Math.floor(hits[0].point.x / CELL)));
+    const gy = Math.max(0, Math.min(WORLD_SIZE - 1, Math.floor(hits[0].point.z / CELL)));
+    const agent = [...this.agents.values()].find((a) => a.grid_x === gx && a.grid_y === gy);
+    const stage = canvas.parentElement;
+    if (!stage) return;
+    const stageRect = stage.getBoundingClientRect();
+    this.tooltipEl.style.left = `${e.clientX - stageRect.left + 12}px`;
+    this.tooltipEl.style.top = `${e.clientY - stageRect.top + 12}px`;
+    if (agent) {
+      const prompt = formatSystemPrompt(agent, this.colonyPurpose);
+      this.tooltipEl.innerHTML = `<strong>${agent.name}</strong><pre>${prompt.replace(/</g, "&lt;")}</pre>`;
+    } else {
+      this.tooltipEl.innerHTML = `<span class="cell-empty">Cell (${gx}, ${gy}) — meadow · no agent</span>`;
+    }
+    this.tooltipEl.classList.remove("hidden");
+  }
+
+  private hideCellTooltip(): void {
+    this.tooltipEl?.classList.add("hidden");
   }
 
   private onClick(e: MouseEvent, canvas: HTMLCanvasElement): void {

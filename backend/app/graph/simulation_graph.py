@@ -14,6 +14,7 @@ from app.agents.decomposer import Decomposer
 from app.agents.messenger import Messenger
 from app.agents.negotiator import Negotiator
 from app.agents.reformer import Reformer
+from app.agents.spanner import Spanner
 from app.baseline.single_agent import SingleAgentBaseline
 from app.institutions.condense import InstitutionCondenser
 from app.lifecycle.rules import LifecycleRules
@@ -36,6 +37,7 @@ class SimulationEngine:
         self.auditor = Auditor()
         self.conflict = ConflictResolver()
         self.reformer = Reformer()
+        self.spanner = Spanner()
         self.confessor = Confessor()
         self.lifecycle = LifecycleRules()
         self.institutions = InstitutionCondenser()
@@ -211,15 +213,22 @@ async def conflict_node(state: SimulationState) -> dict[str, Any]:
 async def reform_node(state: SimulationState) -> dict[str, Any]:
     tick = state["tick"]
     await _emit_phase(tick, "REFORM")
-    agents, events = await asyncio.to_thread(
-        engine.reformer.reform,
+    agents, spanner_events = await asyncio.to_thread(
+        engine.spanner.fit,
         state["agents"],
+        state["ought_snapshot"],
+        state["regret"],
+        tick,
+    )
+    agents, reform_events = await asyncio.to_thread(
+        engine.reformer.reform,
+        agents,
         state["regret"],
         state["regret_narrative"],
         state["ought_snapshot"],
         tick,
     )
-    return {"agents": agents, "events": events}
+    return {"agents": agents, "events": spanner_events + reform_events}
 
 
 def _confess_sync(state: SimulationState, tick: int) -> dict[str, Any]:

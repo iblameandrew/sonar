@@ -78,6 +78,7 @@ export class Dashboard {
   private minimapCanvas: HTMLCanvasElement;
   private minimapCtx: CanvasRenderingContext2D;
   private agentCountInput: HTMLInputElement;
+  private maxTicksSelect: HTMLSelectElement;
   private headsEl: HTMLElement;
   private policyPreviewEl: HTMLElement;
   private activePolicyEl: HTMLElement;
@@ -103,6 +104,7 @@ export class Dashboard {
     this.minimapCanvas = document.getElementById("colony-minimap") as HTMLCanvasElement;
     this.minimapCtx = this.minimapCanvas.getContext("2d")!;
     this.agentCountInput = document.getElementById("agent-count") as HTMLInputElement;
+    this.maxTicksSelect = document.getElementById("max-ticks") as HTMLSelectElement;
     this.headsEl = document.getElementById("attention-heads")!;
     this.policyPreviewEl = document.getElementById("attention-policy-preview")!;
     this.activePolicyEl = document.getElementById("active-attention-policy")!;
@@ -116,6 +118,11 @@ export class Dashboard {
   getAgentCount(): number {
     const n = parseInt(this.agentCountInput?.value ?? "48", 10);
     return Number.isFinite(n) ? Math.max(6, Math.min(512, n)) : 48;
+  }
+
+  getMaxTicks(): number {
+    const n = parseInt(this.maxTicksSelect?.value ?? "12", 10);
+    return Number.isFinite(n) ? Math.max(4, Math.min(500, n)) : 12;
   }
 
   getAttentionPolicy(): AttentionPolicy {

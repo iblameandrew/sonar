@@ -17,6 +17,7 @@
       <div class="workspace">
         <section class="stage">
           <canvas id="canvas"></canvas>
+          <div id="cell-prompt-tooltip" class="cell-prompt-tooltip hidden" role="tooltip"></div>
 
           <div class="stage-overlay">
             <div class="stage-brand">
@@ -95,7 +96,16 @@
                 <span>Colony size</span>
                 <input id="agent-count" type="number" min="6" max="512" value="48" />
               </label>
-              <p class="hint">Top-down zone map · gradient sectors · drag to pan · scroll to zoom</p>
+              <label class="field-row">
+                <span>Ticks</span>
+                <select id="max-ticks">
+                  <option value="12" selected>12 — meaningful minimum</option>
+                  <option value="24">24 — standard</option>
+                  <option value="40">40 — deep run</option>
+                  <option value="80">80 — full marathon</option>
+                </select>
+              </label>
+              <p class="hint">Hover grid cells for agent system prompts · Shift+drag pan · scroll zoom</p>
               <button id="btn-view-answer" class="btn btn-primary hidden" type="button">View Colony Answer</button>
               <div class="btn-grid">
                 <button id="btn-society" class="btn btn-primary">Run Society</button>

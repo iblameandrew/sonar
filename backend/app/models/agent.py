@@ -54,6 +54,24 @@ class QualitativeAgent(BaseModel):
             f"adjectives={self.adjectives} task={self.current_task_id}"
         )
 
+    def system_prompt(self, purpose: str = "") -> str:
+        return format_system_prompt(self, purpose)
+
+
+def format_system_prompt(agent: QualitativeAgent, purpose: str = "") -> str:
+    """Persona block used as the agent's system prompt (verbs · nouns · adjectives · purpose)."""
+    lines = [
+        f"You are {agent.name} ({agent.role}).",
+        f"Verbs: {', '.join(agent.verbs) or 'observe'}",
+        f"Nouns: {', '.join(agent.nouns) or 'task'}",
+        f"Adjectives: {', '.join(agent.adjectives) or 'neutral'}",
+    ]
+    if purpose:
+        lines.append(f"Purpose: {purpose}")
+    if agent.current_task_id:
+        lines.append(f"Current task: {agent.current_task_id}")
+    return "\n".join(lines)
+
 
 class DependencyEntry(BaseModel):
     from_id: str

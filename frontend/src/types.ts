@@ -10,6 +10,8 @@ export interface Agent {
   grid_x: number;
   grid_y: number;
   current_task_id: string | null;
+  /** Error-adapted persona block (verbs · nouns · adjectives · purpose). */
+  system_prompt?: string;
 }
 
 export interface DependencyEntry {
