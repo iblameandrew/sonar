@@ -21,6 +21,7 @@ from app.models.metrics import RunMetrics
 from app.models.state import SimulationState
 from app.seasons.raptor import RaptorMemory
 from app.seasons.scheduler import SeasonScheduler
+from app.llm.qwen_factory import qwen_factory
 from app.store.custodian import Custodian
 from app.store.playbook import PlaybookStore
 
@@ -217,13 +218,13 @@ async def confess_node(state: SimulationState) -> dict[str, Any]:
 
     metrics = state["metrics"]
     metrics.compute_summary()
-    metrics_event = SimEvent(
-        type="society_metrics",
-        tick=tick,
-        payload=metrics.model_dump(),
-    )
+    usage = qwen_factory.get_usage_summary()
+    metrics.society.tokens_estimate = usage.get("total_tokens", metrics.society.tokens_estimate)
 
-    all_events = events + inst_events + life_events + raptor_events + [metrics_event]
+    metrics_event = SimEvent(type="society_metrics", tick=tick, payload=metrics.model_dump())
+    qwen_event = SimEvent(type="qwen_usage", tick=tick, payload={**qwen_factory.get_status(), "tick": tick})
+
+    all_events = events + inst_events + life_events + raptor_events + [metrics_event, qwen_event]
     return {
         "agents": agents,
         "institutions": institutions,

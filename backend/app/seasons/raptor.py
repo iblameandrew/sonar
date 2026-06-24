@@ -5,7 +5,7 @@ import uuid
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
-from app.agents.base import get_llm
+from app.llm.qwen_factory import qwen_factory
 from app.models.events import SimEvent
 from app.models.raptor import RaptorNode
 from app.models.agent import SocialPlaybook
@@ -114,26 +114,22 @@ class RaptorMemory:
         tick_end: int,
         entries: list,
     ) -> tuple[str, str]:
-        llm = get_llm()
         summaries = [
             f"{e.from_id}->{e.to_id} [{e.kind}/{e.strength}]: {e.rationale[:60]}"
             for e in entries[:20]
         ]
-        if llm:
-            try:
-                chain = llm.with_structured_output(SeasonSummary)
-                result: SeasonSummary = chain.invoke(
-                    RAPTOR_PROMPT.format_messages(
-                        micro_season=micro,
-                        macro_season=macro,
-                        tick_start=tick_start,
-                        tick_end=tick_end,
-                        entries=summaries,
-                    )
-                )
-                return result.title, result.summary
-            except Exception:
-                pass
+        result = qwen_factory.invoke_structured(
+            "raptor",
+            SeasonSummary,
+            RAPTOR_PROMPT,
+            {
+                "micro_season": micro, "macro_season": macro,
+                "tick_start": tick_start, "tick_end": tick_end,
+                "entries": summaries,
+            },
+        )
+        if result:
+            return result.title, result.summary
 
         kinds = [e.kind for e in entries]
         dominant = max(set(kinds), key=kinds.count) if kinds else "unknown"

@@ -3,55 +3,106 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>VoxForge — THE ATTENTION AGENT SOCIETY</title>
+    <title>VoxForge — Agent Society Ecology</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div id="app">
-      <header id="top-bar">
-        <h1>VOXFORGE</h1>
-        <span class="subtitle">Attention Agent Society · Track 3 Demo</span>
+      <header class="header">
+        <div class="brand">
+          <span class="brand-icon">◆</span>
+          <div>
+            <h1>VoxForge</h1>
+            <p class="tagline">Conway Colony · Agent Society</p>
+          </div>
+        </div>
+        <div class="header-stats">
+          <span id="tick-label">Tick 0</span>
+          <span id="phase-label">Concept</span>
+          <span id="regret-label">Regret —</span>
+          <span id="mode-label">Idle</span>
+        </div>
+        <span id="qwen-badge" class="badge badge-warn">Qwen offline</span>
       </header>
 
-      <div id="demo-controls">
-        <button id="btn-society" class="demo-btn primary">Run Society</button>
-        <button id="btn-baseline" class="demo-btn">Run Single Agent</button>
-        <button id="btn-conflict" class="demo-btn warn">Inject Conflict</button>
-        <button id="btn-step" class="demo-btn">Step</button>
-        <button id="btn-phase" class="demo-btn">Advance Phase</button>
-        <button id="btn-metrics" class="demo-btn">Show Metrics</button>
-        <button id="btn-pause" class="demo-btn">Pause</button>
-      </div>
-
-      <canvas id="canvas"></canvas>
-
-      <aside id="side-panel">
-        <section id="metrics-panel" class="panel">
-          <h3>Metrics — Society vs Baseline</h3>
-          <div id="metrics-content">Start a run to compare.</div>
+      <main class="main">
+        <section class="viewport">
+          <canvas id="canvas"></canvas>
+          <div id="inspect-panel" class="inspect hidden"></div>
         </section>
-        <section id="negotiation-panel" class="panel">
-          <h3>Negotiations</h3>
-          <div id="negotiation-log"></div>
-        </section>
-        <section id="task-panel" class="panel">
-          <h3>Task Decomposition</h3>
-          <div id="task-tree"></div>
-        </section>
-        <section id="event-log" class="panel">
-          <h3>Live Event Log</h3>
-          <div id="log-content"></div>
-        </section>
-      </aside>
 
-      <div id="inspect-panel" class="hidden"></div>
+        <aside class="dashboard">
+          <nav class="tabs" role="tablist">
+            <button class="tab active" data-tab="controls">Controls</button>
+            <button class="tab" data-tab="colony">Colony</button>
+            <button class="tab" data-tab="metrics">Metrics</button>
+            <button class="tab" data-tab="activity">Activity</button>
+            <button class="tab" data-tab="settings">Settings</button>
+          </nav>
 
-      <div id="status-bar">
-        <span id="tick-label">Tick: 0</span>
-        <span id="phase-label">Phase: concept</span>
-        <span id="regret-label">Regret: —</span>
-        <span id="mode-label">Mode: idle</span>
-      </div>
+          <div class="tab-panels">
+            <section class="tab-panel active" id="tab-controls">
+              <h2>Simulation</h2>
+              <label class="field-row">
+                <span>Colony size</span>
+                <input id="agent-count" type="number" min="6" max="512" value="48" />
+              </label>
+              <p class="hint">96×96 patch · evenly spaced trees · pan with Shift+drag · scroll to zoom</p>
+              <div class="btn-grid">
+                <button id="btn-society" class="btn btn-primary">▶ Run Society</button>
+                <button id="btn-baseline" class="btn">Run Baseline</button>
+                <button id="btn-pause" class="btn">Pause</button>
+                <button id="btn-step" class="btn">Step</button>
+                <button id="btn-phase" class="btn">Advance Phase</button>
+                <button id="btn-conflict" class="btn btn-warn">Inject Conflict</button>
+              </div>
+              <h2>Task Tree</h2>
+              <div id="task-tree" class="scroll-box"></div>
+            </section>
+
+            <section class="tab-panel" id="tab-colony">
+              <h2>Colony Map</h2>
+              <canvas id="colony-minimap" class="minimap" width="192" height="192"></canvas>
+              <h2>Population</h2>
+              <div id="colony-stats" class="metrics-grid"></div>
+              <h2>Sectors</h2>
+              <div id="sector-stats" class="scroll-box"></div>
+              <h2>Agent Registry</h2>
+              <div id="agent-registry" class="scroll-box tall"></div>
+              <h2>Movement Log</h2>
+              <div id="movement-log" class="scroll-box"></div>
+            </section>
+
+            <section class="tab-panel" id="tab-metrics">
+              <h2>Society vs Baseline</h2>
+              <div id="metrics-content" class="metrics-grid">Start a run to compare.</div>
+            </section>
+
+            <section class="tab-panel" id="tab-activity">
+              <h2>Negotiations</h2>
+              <div id="negotiation-log" class="scroll-box"></div>
+              <h2>Event Stream</h2>
+              <div id="log-content" class="scroll-box tall"></div>
+            </section>
+
+            <section class="tab-panel" id="tab-settings">
+              <h2>Qwen Cloud API</h2>
+              <p class="hint">All agents use DashScope. Key is stored server-side for this session.</p>
+              <div class="api-key-row">
+                <input id="api-key-input" type="password" placeholder="sk-… DashScope API key" autocomplete="off" />
+                <button id="btn-save-key" class="btn btn-primary">Connect</button>
+              </div>
+              <div id="qwen-status" class="status-card">Loading provider status…</div>
+
+              <h2>Model per Role</h2>
+              <div id="qwen-models" class="model-list"></div>
+
+              <h2>Visual Layers</h2>
+              <div id="layer-toggles" class="layer-grid"></div>
+            </section>
+          </div>
+        </aside>
+      </main>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

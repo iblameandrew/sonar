@@ -6,13 +6,15 @@ import uuid
 from typing import Any, AsyncGenerator
 
 from app.baseline.single_agent import SingleAgentBaseline
+from app.llm.qwen_factory import qwen_factory
 from app.graph.simulation_graph import build_simulation_graph, engine
 from app.models.agent import SocialPlaybook
 from app.models.canvas import ProjectCanvas
 from app.models.events import SimEvent
 from app.models.metrics import ComparisonMetrics, RunMetrics
 from app.models.state import SimulationState
-from app.seed import DEFAULT_OUGHT, create_project_canvas, create_specialist_agents
+from app.grid import WORLD_SIZE, sector_id, total_walkable_cells
+from app.seed import DEFAULT_OUGHT, create_colony_agents, create_project_canvas
 
 
 class SimulationRunner:
@@ -32,6 +34,7 @@ class SimulationRunner:
         max_ticks: int = 100,
         speed: float = 1.0,
         mode: str = "society",
+        agent_count: int = 48,
     ) -> SimulationState:
         return SimulationState(
             tick=0,
@@ -40,7 +43,7 @@ class SimulationRunner:
             design_phase="concept",
             judgment_temperature="sharp",
             execution_mode=mode,
-            agents=create_specialist_agents(),
+            agents=create_colony_agents(agent_count),
             playbook=SocialPlaybook(),
             canvas=create_project_canvas(),
             regret=0.0,
@@ -64,6 +67,7 @@ class SimulationRunner:
         max_ticks: int = 100,
         speed: float = 1.0,
         mode: str = "society",
+        agent_count: int = 48,
     ) -> SimulationState:
         async with self._lock:
             if self._task and not self._task.done():
@@ -77,7 +81,7 @@ class SimulationRunner:
             engine.custodian.weights = {}
             self.execution_mode = mode
             self.thread_id = str(uuid.uuid4())
-            self.state = self._initial_state(max_ticks, speed, mode)
+            self.state = self._initial_state(max_ticks, speed, mode, agent_count)
             self.state["running"] = True
             self.state["paused"] = False
             self._task = asyncio.create_task(self._run_loop())
@@ -201,6 +205,9 @@ class SimulationRunner:
                     payload=self.state["metrics"].model_dump(),
                 )
             )
+        await self.event_queue.put(
+            SimEvent(type="qwen_usage", tick=tick, payload=qwen_factory.get_status())
+        )
         self.baseline_state["tick"] = tick + 1
 
     async def _run_single_tick(self) -> SimulationState:
@@ -251,6 +258,20 @@ class SimulationRunner:
             "raptor_nodes": [n.model_dump() for n in s["raptor_nodes"]],
             "metrics": s["metrics"].model_dump(),
             "custodian": engine.custodian.to_dict(),
+            "qwen": qwen_factory.get_status(),
+            "colony": self._colony_stats(s["agents"]),
+        }
+
+    def _colony_stats(self, agents: list) -> dict[str, Any]:
+        sectors: dict[str, int] = {}
+        for a in agents:
+            sid = sector_id(a.grid_x, a.grid_y)
+            sectors[sid] = sectors.get(sid, 0) + 1
+        return {
+            "world_size": WORLD_SIZE,
+            "walkable_cells": total_walkable_cells(),
+            "agent_count": len(agents),
+            "sectors": sectors,
         }
 
     def get_metrics(self) -> dict[str, Any]:

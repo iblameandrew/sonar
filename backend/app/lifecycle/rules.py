@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 
+from app.grid import allocate_positions
 from app.models.agent import QualitativeAgent, SocialPlaybook
 from app.models.events import SimEvent
 
@@ -22,6 +23,7 @@ class LifecycleRules:
         events: list[SimEvent] = []
         surviving: list[QualitativeAgent] = []
         pool = list(quality_pool)
+        occupied = {(a.grid_x, a.grid_y) for a in agents}
 
         for agent in agents:
             strong = playbook.strong_entries(agent.id)
@@ -68,7 +70,8 @@ class LifecycleRules:
             surviving.append(agent)
 
             if len(incoming_high) >= BIRTH_INCOMING_HIGH:
-                child = self._spawn_child(agent, incoming_high, pool, tick)
+                child = self._spawn_child(agent, incoming_high, pool, tick, occupied)
+                occupied.add((child.grid_x, child.grid_y))
                 surviving.append(child)
                 events.append(
                     SimEvent(
@@ -103,6 +106,7 @@ class LifecycleRules:
         incoming: list,
         pool: list[str],
         tick: int,
+        occupied: set[tuple[int, int]],
     ) -> QualitativeAgent:
         donors = [parent]
         verbs: list[str] = []
@@ -121,6 +125,12 @@ class LifecycleRules:
         nouns = list(dict.fromkeys(nouns))[:3]
         adjectives = list(dict.fromkeys(adjectives))[:4]
 
+        positions = allocate_positions(1, occupied)
+        if positions:
+            gx, gy = positions[0]
+        else:
+            gx, gy = parent.grid_x, parent.grid_y
+
         return QualitativeAgent(
             id=f"agent-{uuid.uuid4().hex[:8]}",
             name=f"Offspring of {parent.name}",
@@ -129,6 +139,6 @@ class LifecycleRules:
             nouns=nouns or ["spark"],
             adjectives=adjectives or ["curious"],
             parent_ids=[parent.id],
-            grid_x=parent.grid_x + 1,
-            grid_y=parent.grid_y + 1,
+            grid_x=gx,
+            grid_y=gy,
         )

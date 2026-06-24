@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import uuid
 
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel
+
+from app.llm.qwen_factory import qwen_factory
 from app.models.agent import QualitativeAgent, SpecialistRole
 from app.models.canvas import ProjectCanvas, Subtask
 from app.models.events import SimEvent
@@ -16,9 +20,28 @@ ROLE_TASK_MAP: dict[SpecialistRole, list[str]] = {
 }
 
 
-class Decomposer:
-    """Attention-driven task decomposition and role assignment."""
+class TaskAssignment(BaseModel):
+    task_id: str
+    agent_id: str
+    rationale: str
 
+
+class DecomposeResult(BaseModel):
+    assignments: list[TaskAssignment]
+
+
+DECOMPOSE_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "human",
+            "Phase: {phase}\nPending tasks: {tasks}\nSpecialists: {agents}\n"
+            "Assign up to 2 pending tasks to best-matching specialists by verbs/nouns.",
+        ),
+    ]
+)
+
+
+class Decomposer:
     def decompose(
         self,
         canvas: ProjectCanvas,
@@ -29,49 +52,59 @@ class Decomposer:
         events: list[SimEvent] = []
         canvas = canvas.model_copy(deep=True)
         agents = [a.model_copy(deep=True) for a in agents]
-
+        agent_map = {a.id: a for a in agents}
         pending = [t for t in canvas.subtasks if t.status == "pending"]
-        for task in pending[:2]:
-            best = self._match_agent(task, agents)
-            if best:
-                task.status = "assigned"
-                task.assigned_to = best.id
-                best.current_task_id = task.id
-                best.adjectives = list(dict.fromkeys(best.adjectives + ["focused"]))
-                events.append(
-                    SimEvent(
-                        type="task_decomposed",
-                        tick=tick,
-                        payload={
-                            "task_id": task.id,
-                            "title": task.title,
-                            "assigned_to": best.id,
-                            "agent_name": best.name,
-                            "role": best.role,
-                            "phase": phase,
-                        },
+
+        result = qwen_factory.invoke_structured(
+            "decomposer",
+            DecomposeResult,
+            DECOMPOSE_PROMPT,
+            {
+                "phase": phase,
+                "tasks": [{"id": t.id, "title": t.title, "desc": t.description} for t in pending],
+                "agents": [{"id": a.id, "name": a.name, "role": a.role, "verbs": a.verbs} for a in agents],
+            },
+        )
+
+        assignments = result.assignments if result else []
+        if not assignments:
+            for task in pending[:2]:
+                best = self._match_agent(task, agents)
+                if best:
+                    assignments.append(
+                        TaskAssignment(task_id=task.id, agent_id=best.id, rationale="Rule-based match")
                     )
+
+        for asgn in assignments[:2]:
+            task = next((t for t in canvas.subtasks if t.id == asgn.task_id), None)
+            agent = agent_map.get(asgn.agent_id)
+            if not task or not agent or task.status != "pending":
+                continue
+            task.status = "assigned"
+            task.assigned_to = agent.id
+            agent.current_task_id = task.id
+            agent.adjectives = list(dict.fromkeys(agent.adjectives + ["focused"]))
+            events.append(
+                SimEvent(
+                    type="task_decomposed",
+                    tick=tick,
+                    payload={
+                        "task_id": task.id,
+                        "title": task.title,
+                        "assigned_to": agent.id,
+                        "agent_name": agent.name,
+                        "role": agent.role,
+                        "phase": phase,
+                        "rationale": asgn.rationale,
+                        "llm": "qwen",
+                    },
                 )
+            )
 
-        if not canvas.subtasks and phase == "concept":
-            for title, desc, parent in [
-                ("Phase Deliverable", f"Produce {phase} artifact for VoxForge", None)
-            ]:
-                tid = f"task-{uuid.uuid4().hex[:6]}"
-                canvas.subtasks.append(
-                    Subtask(id=tid, title=title, description=desc, status="pending")
-                )
+        return canvas, list(agent_map.values()), events
 
-        return canvas, agents, events
-
-    def _match_agent(
-        self, task: Subtask, agents: list[QualitativeAgent]
-    ) -> QualitativeAgent | None:
+    def _match_agent(self, task: Subtask, agents: list[QualitativeAgent]) -> QualitativeAgent | None:
         for agent in agents:
-            titles = ROLE_TASK_MAP.get(agent.role, [])
-            if task.title in titles and not agent.current_task_id:
+            if task.title in ROLE_TASK_MAP.get(agent.role, []) and not agent.current_task_id:
                 return agent
-        for agent in agents:
-            if not agent.current_task_id:
-                return agent
-        return None
+        return next((a for a in agents if not a.current_task_id), None)

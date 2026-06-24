@@ -7,7 +7,9 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from app.graph.simulation_graph import engine
-from app.seed import create_project_canvas, create_specialist_agents
+from app.llm.qwen_factory import qwen_factory
+from app.grid import WORLD_SIZE, total_walkable_cells
+from app.seed import create_colony_agents, create_project_canvas
 from app.simulation.runner import runner
 
 router = APIRouter(prefix="/api")
@@ -16,6 +18,7 @@ router = APIRouter(prefix="/api")
 class StartRequest(BaseModel):
     max_ticks: int = Field(default=80, ge=1, le=500)
     speed: float = Field(default=1.0, ge=0.1, le=10.0)
+    agent_count: int = Field(default=48, ge=6, le=512)
 
 
 class SeasonForceRequest(BaseModel):
@@ -28,9 +31,45 @@ class SpeedRequest(BaseModel):
     speed: float = Field(ge=0.1, le=10.0)
 
 
+class QwenConfigRequest(BaseModel):
+    role: str
+    model: str
+    temperature: float | None = None
+
+
+class QwenApiKeyRequest(BaseModel):
+    api_key: str = Field(min_length=8)
+
+
 @router.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "system": "THE ATTENTION AGENT SOCIETY", "project": "VoxForge"}
+    return {"status": "ok", "system": "THE ATTENTION AGENT SOCIETY", "project": "VoxForge", "llm": "Qwen Cloud"}
+
+
+@router.get("/qwen/status")
+async def qwen_status() -> dict[str, Any]:
+    return qwen_factory.get_status()
+
+
+@router.get("/qwen/usage")
+async def qwen_usage() -> dict[str, Any]:
+    return qwen_factory.get_usage_summary()
+
+
+@router.post("/qwen/api-key")
+async def qwen_set_api_key(req: QwenApiKeyRequest) -> dict[str, Any]:
+    qwen_factory.set_api_key(req.api_key)
+    return qwen_factory.get_status()
+
+
+@router.post("/qwen/configure")
+async def qwen_configure(req: QwenConfigRequest) -> dict[str, Any]:
+    kwargs = {}
+    if req.temperature is not None:
+        kwargs["temperature"] = req.temperature
+    qwen_factory.set_role_model(req.role, req.model, **kwargs)
+    from dataclasses import asdict
+    return {"role": req.role, "model": req.model, "config": asdict(qwen_factory.get_config(req.role))}
 
 
 @router.get("/state")
@@ -41,7 +80,12 @@ async def get_state() -> dict[str, Any]:
             "tick": 0,
             "design_phase": "concept",
             "execution_mode": "idle",
-            "agents": [a.model_dump() for a in create_specialist_agents()],
+            "agents": [a.model_dump() for a in create_colony_agents(48)],
+            "colony": {
+                "world_size": WORLD_SIZE,
+                "walkable_cells": total_walkable_cells(),
+                "agent_count": 48,
+            },
             "canvas": create_project_canvas().model_dump(),
             "playbook": [],
             "institutions": [],
@@ -58,12 +102,13 @@ async def stream_events() -> EventSourceResponse:
 
 @router.post("/sim/society")
 async def run_society(req: StartRequest) -> dict[str, Any]:
-    state = await runner.start(req.max_ticks, req.speed, mode="society")
+    state = await runner.start(req.max_ticks, req.speed, mode="society", agent_count=req.agent_count)
     return {
         "status": "society_started",
         "tick": state["tick"],
         "agents": len(state["agents"]),
         "subtasks": len(state["canvas"].subtasks),
+        "agent_count": req.agent_count,
     }
 
 

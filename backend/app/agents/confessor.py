@@ -1,8 +1,28 @@
 from __future__ import annotations
 
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel
+
+from app.llm.qwen_factory import qwen_factory
 from app.models.agent import DependencyEntry, QualitativeAgent, SocialPlaybook
 from app.models.events import SimEvent
 from app.store.custodian import Custodian
+
+
+class LessonLearned(BaseModel):
+    lesson: str
+    affected_agents: list[str]
+
+
+CONFESS_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "human",
+            "Backward flow entries this tick: {entries}\n"
+            "Summarize one key lesson to propagate to causes.",
+        ),
+    ]
+)
 
 
 class Confessor:
@@ -17,8 +37,28 @@ class Confessor:
     ) -> tuple[list[QualitativeAgent], list[SimEvent]]:
         events: list[SimEvent] = []
         agent_map = {a.id: a.model_copy(deep=True) for a in agents}
-
         tick_entries = [e for e in playbook.entries if e.tick == tick]
+
+        if tick_entries:
+            lesson_result = qwen_factory.invoke_structured(
+                "confessor",
+                LessonLearned,
+                CONFESS_PROMPT,
+                {
+                    "entries": [
+                        f"{e.from_id}->{e.to_id} [{e.kind}/{e.strength}]: {e.rationale[:80]}"
+                        for e in tick_entries[:10]
+                    ],
+                },
+            )
+            if lesson_result:
+                events.append(
+                    SimEvent(
+                        type="confessor_lesson",
+                        tick=tick,
+                        payload={"lesson": lesson_result.lesson, "llm": "qwen"},
+                    )
+                )
 
         for entry in tick_entries:
             blended = custodian.update(entry.from_id, entry.to_id, entry.strength)
@@ -32,6 +72,7 @@ class Confessor:
                         "original_strength": entry.strength,
                         "blended_strength": blended,
                         "kind": entry.kind,
+                        "llm": "qwen",
                     },
                 )
             )
@@ -44,13 +85,9 @@ class Confessor:
             if entry.strength in ("med", "high") and entry.qualitative_distance == "near":
                 for adj in cause.adjectives[:2]:
                     if adj not in effect.adjectives and adj in (
-                        "trusted", "generous", "calm", "prestigious", "skilled"
+                        "trusted", "generous", "calm", "prestigious", "skilled", "aligned"
                     ):
                         effect.adjectives.append(adj)
-
-            if entry.kind == "conflict" and entry.strength in ("med", "high"):
-                if "feared" not in effect.adjectives:
-                    effect.adjectives.append("feared")
 
         custodian.save()
         return list(agent_map.values()), events

@@ -3,7 +3,7 @@ from __future__ import annotations
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 
-from app.agents.base import get_llm
+from app.llm.qwen_factory import qwen_factory
 from app.models.agent import QualitativeAgent
 from app.models.events import SimEvent
 
@@ -22,12 +22,6 @@ class ReformerBatch(BaseModel):
 
 REFORM_PROMPT = ChatPromptTemplate.from_messages(
     [
-        (
-            "system",
-            "You are THE REFORMER — gradient descent as social change. "
-            "Push each agent to change in the direction that reduces the Auditor's regret. "
-            "Propose small qualitative shifts (add/remove adjectives or verbs).",
-        ),
         (
             "human",
             "Regret: {regret}\nNarrative: {narrative}\n"
@@ -48,25 +42,18 @@ class Reformer:
         tick: int,
     ) -> tuple[list[QualitativeAgent], list[SimEvent]]:
         events: list[SimEvent] = []
-        llm = get_llm()
-        updates: list[ReformerUpdate] = []
-
-        if llm:
-            try:
-                chain = llm.with_structured_output(ReformerBatch)
-                batch: ReformerBatch = chain.invoke(
-                    REFORM_PROMPT.format_messages(
-                        regret=regret,
-                        narrative=narrative,
-                        ought=ought,
-                        agents=[a.summary() for a in agents],
-                    )
-                )
-                updates = batch.updates
-            except Exception:
-                updates = self._heuristic(agents, regret, ought)
-        else:
-            updates = self._heuristic(agents, regret, ought)
+        batch = qwen_factory.invoke_structured(
+            "reformer",
+            ReformerBatch,
+            REFORM_PROMPT,
+            {
+                "regret": regret,
+                "narrative": narrative,
+                "ought": ought,
+                "agents": [a.summary() for a in agents],
+            },
+        )
+        updates = batch.updates if batch else self._heuristic(agents, regret, ought)
 
         agent_map = {a.id: a.model_copy(deep=True) for a in agents}
         for upd in updates:
@@ -92,34 +79,26 @@ class Reformer:
                         "remove_adjectives": upd.remove_adjectives,
                         "add_verbs": upd.add_verbs,
                         "rationale": upd.rationale,
+                        "llm": "qwen",
                     },
                 )
             )
 
         return list(agent_map.values()), events
 
-    def _heuristic(
-        self, agents: list[QualitativeAgent], regret: float, ought: dict
-    ) -> list[ReformerUpdate]:
-        desired = ought.get("desired_adjectives", ["fed", "trusted", "purposeful"])
+    def _heuristic(self, agents, regret, ought) -> list[ReformerUpdate]:
+        desired = ought.get("desired_adjectives", ["collaborative", "transparent"])
         updates: list[ReformerUpdate] = []
         for agent in agents:
             add, remove = [], []
-            if "hungry" in agent.adjectives and "fed" in desired:
-                remove.append("hungry")
-                add.append("fed")
-            if "lonely" in agent.adjectives and "cooperative" in desired:
-                remove.append("lonely")
-                add.append("cooperative")
-            if regret > 0.5 and "purposeful" in desired and "purposeful" not in agent.adjectives:
-                add.append("purposeful")
-            if add or remove:
-                updates.append(
-                    ReformerUpdate(
-                        agent_id=agent.id,
-                        add_adjectives=add,
-                        remove_adjectives=remove,
-                        rationale=f"Reform toward OUGHT (regret={regret:.2f})",
-                    )
-                )
+            if regret > 0.5:
+                for d in desired:
+                    if d not in agent.adjectives:
+                        add.append(d)
+                        break
+            if add:
+                updates.append(ReformerUpdate(
+                    agent_id=agent.id, add_adjectives=add, remove_adjectives=remove,
+                    rationale=f"Reform toward OUGHT (regret={regret:.2f})",
+                ))
         return updates

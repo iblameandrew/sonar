@@ -120,7 +120,16 @@ export const ROLE_COLORS: Record<string, number> = {
   integrator: 0x60ff90,
   ux_weaver: 0xff90ff,
   critic_evaluator: 0xffffff,
+  worker: 0x90caf9,
+  generalist: 0xb0bec5,
 };
+
+export interface ColonyInfo {
+  world_size: number;
+  walkable_cells: number;
+  agent_count: number;
+  sectors?: Record<string, number>;
+}
 
 export const STRENGTH_SCALE: Record<string, number> = {
   none: 0,

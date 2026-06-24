@@ -2,14 +2,37 @@ from __future__ import annotations
 
 import uuid
 
+from langchain_core.prompts import ChatPromptTemplate
+from pydantic import BaseModel
+
+from app.llm.qwen_factory import qwen_factory
 from app.models.agent import QualitativeAgent
 from app.models.canvas import Artifact, NegotiationRound, ProjectCanvas
 from app.models.events import SimEvent
 
 
-class ConflictResolver:
-    """Mediated negotiation, compromise, or voting when Auditor regret is high."""
+class ConflictResolution(BaseModel):
+    topic: str
+    proposal: str
+    counter_offer: str
+    outcome: str
+    rationale: str
+    decision: str
 
+
+CONFLICT_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "human",
+            "Regret: {regret}\nNarrative: {narrative}\n"
+            "Disputants: {agents}\nRecent negotiations: {negotiations}\n"
+            "Mediate conflict. Propose compromise or voting outcome for VoxForge architecture.",
+        ),
+    ]
+)
+
+
+class ConflictResolver:
     def resolve(
         self,
         canvas: ProjectCanvas,
@@ -20,44 +43,55 @@ class ConflictResolver:
         forced: bool = False,
     ) -> tuple[ProjectCanvas, list[QualitativeAgent], list[SimEvent], bool]:
         events: list[SimEvent] = []
-        canvas = canvas.model_copy(deep=True)
-        agents = [a.model_copy(deep=True) for a in agents]
-
         if regret < 0.55 and not forced:
             return canvas, agents, events, False
 
+        canvas = canvas.model_copy(deep=True)
+        agents = [a.model_copy(deep=True) for a in agents]
         disputants = agents[:2] if len(agents) >= 2 else agents
         if not disputants:
             return canvas, agents, events, False
 
-        a, b = disputants[0], disputants[1] if len(disputants) > 1 else disputants[0]
-        topic = "Architecture disagreement: monolith vs modular VoxForge"
-        votes = {a.id: "modular", b.id: "modular"}
-        outcome = "voting"
+        a = disputants[0]
+        b = disputants[1] if len(disputants) > 1 else disputants[0]
+
+        result = qwen_factory.invoke_structured(
+            "conflict_resolver",
+            ConflictResolution,
+            CONFLICT_PROMPT,
+            {
+                "regret": regret,
+                "narrative": narrative,
+                "agents": [ag.summary() for ag in disputants],
+                "negotiations": [n.rationale for n in canvas.negotiations[-3:]],
+            },
+        )
+
+        if result:
+            topic, rationale, decision = result.topic, result.rationale, result.decision
+            proposal, counter, outcome = result.proposal, result.counter_offer, result.outcome
+        else:
+            topic = "Architecture disagreement"
+            proposal = f"{a.name}: modular LangGraph"
+            counter = f"{b.name}: shared canvas"
+            outcome, rationale = "voting", "Adopt modular graph + shared canvas"
+            decision = rationale
 
         rnd = NegotiationRound(
             id=f"conflict-{uuid.uuid4().hex[:8]}",
-            tick=tick,
-            topic=topic,
-            proposer_id=a.id,
-            responder_id=b.id,
-            proposal=f"{a.name}: modular LangGraph nodes",
-            counter_offer=f"{b.name}: shared canvas state",
-            outcome=outcome,
-            rationale=f"Mediated vote resolved conflict (regret={regret:.2f}): adopt modular graph + shared canvas",
+            tick=tick, topic=topic,
+            proposer_id=a.id, responder_id=b.id,
+            proposal=proposal, counter_offer=counter,
+            outcome=outcome,  # type: ignore[arg-type]
+            rationale=rationale,
         )
         canvas.negotiations.append(rnd)
-        canvas.decisions.append(rnd.rationale)
-
-        artifact = Artifact(
+        canvas.decisions.append(decision)
+        canvas.add_artifact(Artifact(
             id=f"art-{uuid.uuid4().hex[:8]}",
-            kind="architecture",
-            title="Conflict Resolution: Modular VoxForge",
-            content=rnd.rationale,
-            author_id=a.id,
-            tick=tick,
-        )
-        canvas.add_artifact(artifact)
+            kind="architecture", title="Conflict Resolution",
+            content=decision, author_id=a.id, tick=tick,
+        ))
 
         for agent in agents:
             if "hostile" in agent.adjectives:
@@ -67,16 +101,8 @@ class ConflictResolver:
 
         events.append(
             SimEvent(
-                type="conflict_resolved",
-                tick=tick,
-                payload={
-                    "regret": regret,
-                    "narrative": narrative,
-                    "negotiation": rnd.model_dump(),
-                    "votes": votes,
-                    "artifact_id": artifact.id,
-                },
+                type="conflict_resolved", tick=tick,
+                payload={"regret": regret, "negotiation": rnd.model_dump(), "llm": "qwen"},
             )
         )
-
         return canvas, agents, events, True

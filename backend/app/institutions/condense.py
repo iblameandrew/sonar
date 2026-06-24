@@ -8,7 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 from sklearn.cluster import KMeans
 
-from app.agents.base import get_llm
+from app.llm.qwen_factory import qwen_factory
 from app.models.agent import DependencyEntry, SocialPlaybook
 from app.models.events import SimEvent
 from app.models.institution import Institution
@@ -145,21 +145,15 @@ class InstitutionCondenser:
         members: list[str],
         entries: list[DependencyEntry],
     ) -> tuple[str, dict[str, str]]:
-        llm = get_llm()
         rationales = [e.rationale for e in entries[:5]]
-        if llm:
-            try:
-                chain = llm.with_structured_output(InstitutionProposal)
-                result: InstitutionProposal = chain.invoke(
-                    INST_PROMPT.format_messages(
-                        kind=kind,
-                        members=members,
-                        rationales=rationales,
-                    )
-                )
-                return result.name, result.policy
-            except Exception:
-                pass
+        result = qwen_factory.invoke_structured(
+            "institution",
+            InstitutionProposal,
+            INST_PROMPT,
+            {"kind": kind, "members": members, "rationales": rationales},
+        )
+        if result:
+            return result.name, result.policy
 
         templates = {
             "economic": ("Trade Guild", {"prosperous": "promote", "hungry": "suppress"}),

@@ -43,4 +43,15 @@ Open http://localhost:5173
 - **Inject Conflict** — trigger conflict resolution demo
 - **Step** / **Advance Phase** / **Show Metrics**
 
-Optional: `OPENAI_API_KEY` for LLM-enhanced judgments (heuristic fallback included).
+### Qwen Cloud (required for full demo)
+
+All agents use **Qwen Cloud (DashScope)** exclusively:
+
+```bash
+DASHSCOPE_API_KEY=sk-...   # or QWEN_API_KEY
+QWEN_MODEL=qwen-max        # default; per-role overrides in UI
+```
+
+Per-role models: Auditor on `qwen-max`, coding agents on `qwen2.5-coder-32b-instruct`, baseline uses same config for fair comparison.
+
+API: `GET /api/qwen/status`, `GET /api/qwen/usage`, `POST /api/qwen/configure`
