@@ -34,7 +34,7 @@ The society is not a chatroom. It is a **closed learning loop** where agents per
 
 Colony continues the qualitative-neural-network line from [open-deepthink](https://github.com/iblameandrew/open-deepthink), which mapped agents onto a **layered feed-forward MLP**: parallel layer execution, Mirror Descent on personas, and epoch reframing — without an attention mechanism.
 
-Colony upgrades that design to a **full transformer block**. The society loop implements attention-weighted dependency matching, feed-forward activation routing, residual backward flow, loss/regret, and gradient-style parameter updates — each as a named agent with a social role on the shared grid.
+Colony upgrades that design to a **full transformer block**. Each simulation tick runs one conceptual block pass: colony agents are the **token sequence** being attended; orchestrator modules (Messenger, AttentionAgent, Auditor, …) are the **block operators** that score pairs, route work, compute loss, and write residuals back into persistent edge weights.
 
 | | open-deepthink | Colony |
 |---|----------------|--------|
@@ -49,71 +49,175 @@ Colony upgrades that design to a **full transformer block**. The society loop im
 
 ## The Conceptual Transformer
 
-### Transformer as agent society
+### Two layers — don't conflate them
 
-Colony maps each transformer primitive to a named agent with a fixed **social role** in the simulation. Forward pass agents route work and score dependencies; backward pass agents compute loss, apply updates, and write residuals back into the weight graph. The grid view makes matrix operations legible as agent movement and negotiation.
+Colony uses the word *agent* in two distinct ways. The diagrams below keep them separate so the transformer analogy stays precise.
 
-### Neural component → agent mapping
+| Layer | What it is | Count | On the grid? |
+|-------|------------|-------|--------------|
+| **Colony agents** | Specialists + workers that perform tasks and get pairwise-scored | 48–512 | Yes — one voxel stack each |
+| **Orchestrator modules** | Singleton Python classes that run once per tick (Messenger, AttentionAgent, Auditor, …) | ~12 | No — they operate on shared state |
 
-| Neural / Transformer Component | Agent Role | Social role | Function |
-|-------------------------------|------------|-------------|----------|
-| Cost function / loss | **Loss Agent** | Auditor | Computes collective regret (loss) against the target state and broadcasts the signal. |
-| Backward connections / residual flow | **Residual Flow Agent** | Historian | Propagates feedback along dependency edges (residual / backward flow). |
-| Gradient descent / parameter update | **Gradient Descent Agent** | Reformer | Applies parameter updates when alignment drifts (gradient step on roles and traits). |
-| Feed-forward activation | **Feed-Forward Agent** | Messenger | Routes activations and task output between agents (feed-forward pass). |
-| Learned weights / persistent parameters | **Weight Agent** | Archivist | Stores persistent edge weights and dependency strengths (learned parameters). |
-| Core attention mechanism | **Attention Agent** | Matcher | Scores pairwise relevance between agents (attention weights). |
-| Attention matrix / dependency graph | **Social Playbook** | Registry | Maintains the live dependency graph: distances, strengths, and rationales. |
-| Low-rank condensation / clustering | **Low-Rank Agent** | Governor | Condenses repeated playbook patterns into stable governance rules. |
-| Agent creation rule | **Birth mechanism** | Recruiter | Spawns agents when dependency thresholds are met. |
-| Persistence rule | **Survival mechanism** | Steward | Keeps agents active while connection strength stays above threshold. |
-| Dissolution rule | **Death mechanism** | Recycler | Removes isolated or overloaded agents and returns capacity to the pool. |
-| Temporal modulation | **Seasonal variance** | Scheduler | Alternates sharp vs diffuse loss and attention coefficients across ticks. |
-| Higher-order memory consolidation | **Hierarchical Memory Agent** | Archivist (long-term) | Summarizes playbook history into hierarchical memory structures. |
+Colony agents **do not wire together into MatMul / Softmax / FFN layers** when they associate. Association means: the **AttentionAgent** orchestrator scores pairs → edges land in the **Social Playbook** → **Custodian** EMA-blends persistent weights → lifecycle and institutions react. The grid lines you see are playbook edges visualized, not a literal tensor graph.
 
-### Core agent roles
+The transformer block is the **per-tick LangGraph loop** around shared state (`agents`, `canvas`, `playbook`, `custodian`). Colony agents are the **sequence being transformed**; orchestrator modules are the **operators**.
 
-Each neural operation is an agent with an explicit social function:
-
-- **Loss Agent** — computes and broadcasts regret (loss signal).
-- **Residual Flow Agent** — propagates feedback along dependency edges (residual flow).
-- **Gradient Descent Agent** — applies parameter updates when alignment drifts (gradient step).
-- **Feed-Forward Agent** — routes activations and artifacts between agents (feed-forward pass).
-- **Weight Agent** — stores persistent edge weights (learned parameters).
-- **Attention Agent** — scores pairwise agent relevance (attention weights).
-
-Together they implement a multi-agent forward/backward loop. **Low-Rank Agent** condenses repeated dependency patterns into governance rules. Birth, survival, and death rules regulate population from connection strength. Seasonal variance toggles how sharply loss and attention are applied each macro-cycle.
+### One tick = one transformer block
 
 ```mermaid
 flowchart TB
-    subgraph forward["Forward pass"]
-        M[Feed-Forward Agent<br/>Activation routing]
-        A[Attention Agent<br/>Attention weights]
-        SP[Social Playbook<br/>Dependency graph]
-        M --> A --> SP
+    subgraph block["Classic transformer block (one layer)"]
+        direction TB
+        XIN["Input X<br/><i>hidden state</i>"]
+        LN1["LayerNorm"]
+        MHA["Multi-Head Self-Attention<br/>Attn = softmax(QKᵀ/√d)·V"]
+        ADD1["Residual + Norm"]
+        FFN["Feed-Forward Network"]
+        ADD2["Residual + Norm"]
+        XOUT["Output X′"]
+        XIN --> LN1 --> MHA --> ADD1 --> FFN --> ADD2 --> XOUT
+        XIN -.->|skip connection| ADD1
+        ADD1 -.->|skip connection| ADD2
     end
 
-    subgraph backward["Backward pass"]
-        AU[Loss Agent<br/>Loss / regret]
-        AU -->|regret signal| RF[Gradient Descent Agent<br/>Parameter update]
-        AU -->|feedback| CF[Residual Flow Agent<br/>Residual flow]
+    subgraph tick["Colony tick (one LangGraph pass — actual order)"]
+        direction TB
+        STATE["Shared state<br/>agents · canvas · playbook · custodian"]
+        PERFORM["PERFORM · Messenger<br/><i>feed-forward activations</i>"]
+        DECOMPOSE["DECOMPOSE · Decomposer<br/><i>input projection</i>"]
+        ATTEND["ATTEND · AttentionAgent<br/><i>self-attention scoring</i>"]
+        AUDIT["AUDIT · Auditor<br/><i>loss / regret</i>"]
+        REFORM["REFORM · Reformer<br/><i>gradient-style update</i>"]
+        CONFESS["CONFESS · Confessor + Custodian<br/><i>residual / weight write-back</i>"]
+        STATE --> PERFORM --> DECOMPOSE --> ATTEND --> AUDIT --> REFORM --> CONFESS --> STATE
     end
 
-    subgraph population["Population dynamics"]
-        INST[Low-Rank Agent<br/>Low-rank condensation]
-        LIFE[Birth · Survival · Death]
-        SEA[Seasonal variance]
-        RAP[Hierarchical Memory Agent<br/>Memory consolidation]
-    end
-
-    forward --> backward
-    backward --> population
-    population --> forward
-    CU[Weight Agent<br/>Learned weights] -.-> forward
-    CU -.-> backward
+    MHA -.->|analogue| ATTEND
+    FFN -.->|analogue| PERFORM
+    LN1 -.->|season + policy context| ATTEND
+    ADD1 -.->|playbook skip| CONFESS
+    ADD2 -.->|persona skip| REFORM
+    XOUT -.->|analogue| STATE
 ```
 
-> **Operational layer:** The LangGraph loop (PERFORM → DECOMPOSE → ATTEND → …) runs this mapping each tick. The table above is the role model; the [Learning loop](#learning-loop) section below is where it executes.
+> **Order note:** A classic block lists projection → attention → FFN left-to-right. Colony runs **FFN → projection → attention** within the forward half (`PERFORM → DECOMPOSE → ATTEND`) because agents produce artifacts before subtasks are re-routed and pairs are scored. The *roles* still map cleanly; only the scheduling differs.
+
+### Self-attention analogue
+
+In a transformer, every token attends to every other token. In Colony, every **colony agent** can be scored against every other agent each tick — that pairwise judgment *is* the self-attention step.
+
+```mermaid
+flowchart LR
+    subgraph seq["Colony agents ≈ token sequence"]
+        direction TB
+        A1["Agent A<br/>verbs · nouns · adjectives"]
+        A2["Agent B"]
+        A3["Agent C"]
+        AN["… up to 512"]
+    end
+
+    subgraph attn["Self-attention step (ATTEND node)"]
+        direction TB
+        PAIRS["Pair selection<br/>specialist×all + worker sample<br/>≤ 96 pairs / tick"]
+        HEADS["Multi-head policy<br/>pre-launch head weights<br/>boost role×role kinds"]
+        SCORE["AttentionAgent.judge_pair<br/>Q: who attends? · K: attended-to traits<br/>V: kind + rationale"]
+        SOFT["Qualitative softmax<br/>strength: none · low · med · high<br/>distance: near · mid · far"]
+        PLAY["Social Playbook<br/>sparse attention matrix<br/>from_id → to_id edges"]
+    end
+
+    subgraph persist["Weight persistence"]
+        CUST["Custodian EMA<br/>learned edge weights"]
+        VIZ["Grid connection lines<br/>weighted playbook edges"]
+    end
+
+    A1 & A2 & A3 & AN --> PAIRS
+    PAIRS --> HEADS --> SCORE --> SOFT --> PLAY
+    PLAY --> CUST
+    PLAY --> VIZ
+```
+
+| Transformer primitive | Colony implementation |
+|-----------------------|----------------------|
+| Token embeddings | Agent trait vectors (`verbs`, `nouns`, `adjectives`, `role`) |
+| Q / K / Kᵀ | Pairwise comparison of agent A's traits toward agent B |
+| Attention weights | `DependencyEntry.strength` + `qualitative_distance` |
+| Attention matrix | `SocialPlaybook` — growing list of directed edges |
+| Multi-head attention | Pre-launch **attention head policy** (14 societal functions, weighted heads) + **Negotiator** on contested pairs |
+| Softmax | Qualitative bucketing + season temperature (`sharp` filters weak edges) |
+| Learned parameters | `Custodian` EMA on `from_id→to_id` keys (`custodian.json`) |
+
+### Neural component → orchestrator mapping
+
+| Neural / Transformer Component | Orchestrator module | LLM role ID | Function |
+|-------------------------------|------------|-------------|----------|
+| Cost function / loss | `Auditor` | `loss_agent` | Computes collective regret (loss) against the target state and broadcasts the signal. |
+| Backward connections / residual flow | `Confessor` | `residual_flow_agent` | Propagates feedback along dependency edges (residual / backward flow). |
+| Gradient descent / parameter update | `Reformer` | `gradient_descent_agent` | Applies parameter updates when alignment drifts (gradient step on roles and traits). |
+| Feed-forward activation | `Messenger` | `feed_forward_agent` | Routes activations and task output between colony agents (feed-forward pass). |
+| Learned weights / persistent parameters | `Custodian` | `weight_agent` | Stores persistent edge weights and dependency strengths (learned parameters). |
+| Core attention mechanism | `AttentionAgent` | `attention_agent` | Scores pairwise relevance between colony agents (attention weights). |
+| Attention matrix / dependency graph | `SocialPlaybook` | — | Maintains the live dependency graph: distances, strengths, and rationales. |
+| Low-rank condensation / clustering | `InstitutionCondenser` | `low_rank_agent` | Condenses repeated playbook patterns into stable governance rules. |
+| Agent creation rule | `LifecycleRules` | — | Spawns agents when dependency thresholds are met. |
+| Persistence rule | `LifecycleRules` | — | Keeps agents active while connection strength stays above threshold. |
+| Dissolution rule | `LifecycleRules` | — | Removes isolated or overloaded agents and returns capacity to the pool. |
+| Temporal modulation | `SeasonScheduler` | — | Alternates sharp vs diffuse loss and attention coefficients across ticks. |
+| Higher-order memory consolidation | `RaptorMemory` | `hierarchical_memory_agent` | Summarizes playbook history into hierarchical memory structures. |
+
+### Forward / backward data flow
+
+Orchestrator modules are **not** colony agents on the grid. They are tick-level operators that read and write shared state:
+
+```mermaid
+flowchart TB
+    subgraph colony["Colony layer (grid agents)"]
+        GA["48–512 colony agents<br/>specialists + workers"]
+    end
+
+    subgraph forward["Forward half-block"]
+        direction LR
+        IP["Input Projection<br/>Decomposer"]
+        SA["Self-Attention<br/>AttentionAgent"]
+        MH["Multi-Head contention<br/>Negotiator"]
+        FF["Feed-Forward<br/>Messenger"]
+        IP --> SA --> MH
+        SA --> PLAY[(Social Playbook)]
+        FF --> CANVAS[(Project Canvas<br/>artifacts + subtasks)]
+    end
+
+    subgraph backward["Backward half-block"]
+        direction LR
+        LOSS["Loss<br/>Auditor"]
+        INTV["High-loss gate<br/>ConflictResolver"]
+        GRAD["Gradient step<br/>Reformer"]
+        RES["Residual flow<br/>Confessor"]
+        LOSS -->|regret ≥ 0.55| INTV --> GRAD
+        LOSS -->|ok| GRAD
+        GRAD --> RES
+        RES --> CUST[(Custodian weights)]
+    end
+
+    GA -.->|traits scored| SA
+    GA -.->|task work| FF
+    PLAY -.->|edge lines| GA
+    CUST -.->|persistent strengths| SA
+    CANVAS --> LOSS
+    PLAY --> RES
+
+    subgraph pop["Population dynamics (between ticks)"]
+        INST["Institution condenser<br/>low-rank governance"]
+        LIFE["Lifecycle<br/>birth · survival · death"]
+        SEA["Season scheduler<br/>attention temperature"]
+        RAP["RAPTOR memory<br/>playbook summarization"]
+    end
+
+    PLAY --> INST --> LIFE
+    SEA -.-> SA
+    PLAY --> RAP
+    LIFE -.-> GA
+```
+
+> **Operational layer:** The [Learning loop](#learning-loop) section below shows the exact LangGraph node order and module names.
 
 ---
 
@@ -126,8 +230,8 @@ The frontend renders a fixed **isometric orthographic** view — like watching a
 │  Isometric colony view (ant-farm)   │  Dashboard       │
 │  96×96 land patch                   │  · Colony map    │
 │  Trees every 8 cells (even grid)    │  · Sector stats  │
-│  Conway life = glowing substrate    │  · Agent registry│
-│  Agents = instanced voxel cubes     │  · Movement log  │
+│  Agents = instanced voxel cubes     │  · Agent registry│
+│  Playbook edges = connection lines  │  · Movement log  │
 │  Pan/zoom only (Shift+drag, scroll) │  · Metrics       │
 └─────────────────────────────────────┴──────────────────┘
 ```
@@ -146,23 +250,40 @@ The frontend renders a fixed **isometric orthographic** view — like watching a
 
 ## Learning loop
 
-Each simulation tick runs the full society graph — the LangGraph loop layered on the transformer role model:
+Each simulation tick runs the full society graph — one transformer-block pass over shared state:
 
 ```
-PERFORM → DECOMPOSE → ATTEND → NEGOTIATE → AUDIT → CONFLICT? → REFORM → CONFESS
+PERFORM → DECOMPOSE → ATTEND (+ negotiate) → AUDIT → CONFLICT? → REFORM → CONFESS → tick++
 ```
 
 ```mermaid
-flowchart LR
-    P[PERFORM] --> D[DECOMPOSE]
-    D --> A[ATTEND]
-    A --> N[NEGOTIATE]
-    N --> AU[AUDIT]
-    AU -->|regret ≥ 0.55| C[CONFLICT]
-    AU -->|ok| R[REFORM]
-    C --> R
-    R --> CF[CONFESS]
-    CF --> P
+flowchart TB
+    subgraph graph["LangGraph node order (actual execution)"]
+        direction TB
+        P["PERFORM<br/>Messenger · feed-forward"]
+        D["DECOMPOSE<br/>Decomposer · input projection"]
+        A["ATTEND<br/>AttentionAgent · self-attention<br/>+ Negotiator · multi-head"]
+        AU["AUDIT<br/>Auditor · loss"]
+        C["CONFLICT<br/>ConflictResolver"]
+        R["REFORM<br/>Reformer · gradient step"]
+        CF["CONFESS<br/>Confessor · residual flow<br/>+ Custodian · weight write<br/>+ lifecycle · institutions · RAPTOR"]
+        INC["increment tick"]
+        P --> D --> A --> AU
+        AU -->|regret ≥ 0.55| C --> R
+        AU -->|ok| R
+        R --> CF --> INC
+        INC -->|next tick| P
+    end
+
+    subgraph tf["Transformer sub-block mapped to each node"]
+        direction TB
+        TFF["FFN activations"] -.-> P
+        TIP["Input projection"] -.-> D
+        TSA["Self-attention + multi-head"] -.-> A
+        TL["Loss signal"] -.-> AU
+        TG["Parameter update"] -.-> R
+        TR["Residual + weight persistence"] -.-> CF
+    end
 ```
 
 | Agent | Transformer analogue | Role |
