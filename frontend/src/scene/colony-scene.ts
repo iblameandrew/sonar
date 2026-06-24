@@ -604,6 +604,13 @@ export class ColonyScene {
     setTimeout(() => this.renderer.setClearColor(ECO.sky), 300);
   }
 
+  /** Reset pan/zoom to the default isometric view centered on the colony. */
+  recenter(): void {
+    this.panX = 0;
+    this.panZ = 0;
+    this.fitCamera();
+  }
+
   private fitCamera(): void {
     const cx = WORLD_EXTENT / 2 + this.panX;
     const cz = WORLD_EXTENT / 2 + this.panZ;

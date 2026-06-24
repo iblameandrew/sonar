@@ -16,6 +16,7 @@ from app.models.metrics import ComparisonMetrics, RunMetrics
 from app.models.state import SimulationState
 from app.grid import WORLD_SIZE, sector_id, total_walkable_cells
 from app.seed import create_colony_agents, create_project_canvas, ought_for_prompt
+from app.synthesis.final_answer import build_final_answer
 
 
 class SimulationRunner:
@@ -31,6 +32,7 @@ class SimulationRunner:
         self.execution_mode: str = "society"
         self.live_phase: str = "idle"
         self.live_attention: dict[str, int] = {"done": 0, "total": 0, "matched": 0}
+        self.final_answer: str = ""
 
     def reset_live_progress(self) -> None:
         self.live_phase = "idle"
@@ -93,6 +95,7 @@ class SimulationRunner:
             engine.playbook_store.playbook = SocialPlaybook()
             engine.custodian.weights = {}
             self.reset_live_progress()
+            self.final_answer = ""
             self.execution_mode = mode
             self.thread_id = str(uuid.uuid4())
             self.state = self._initial_state(
@@ -173,8 +176,17 @@ class SimulationRunner:
                 continue
             if self.state["tick"] >= self.state["max_ticks"]:
                 self.state["running"] = False
+                self.final_answer = build_final_answer(self.state)
                 await self.event_queue.put(
-                    SimEvent(type="sim_complete", tick=self.state["tick"], payload={"mode": "society"})
+                    SimEvent(
+                        type="sim_complete",
+                        tick=self.state["tick"],
+                        payload={
+                            "mode": "society",
+                            "final_answer": self.final_answer,
+                            "goal": self.state["canvas"].goal,
+                        },
+                    )
                 )
                 break
             try:
@@ -320,6 +332,9 @@ class SimulationRunner:
             "attention_policy_preview": preview_entries(s.get("attention_policy")),
             "live_phase": self.live_phase,
             "live_attention": dict(self.live_attention),
+            "final_answer": self.final_answer or (
+                build_final_answer(s) if not s["running"] else ""
+            ),
         }
 
     def _colony_stats(self, agents: list) -> dict[str, Any]:

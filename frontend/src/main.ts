@@ -1,6 +1,7 @@
 import { SSEClient } from "./sse/client";
 import { roleLabel } from "./agentRoles";
 import type { Dashboard } from "./ui/Dashboard";
+import { AnswerModal } from "./ui/AnswerModal";
 import type { PolicyPreview, AttentionPolicy } from "./attentionPolicy";
 import type { Agent, ColonyInfo, ComparisonMetrics, ProjectCanvas, SimEvent } from "./types";
 import type { QwenStatus } from "./ui/Dashboard";
@@ -17,6 +18,7 @@ const bootErrorEl = document.getElementById("boot-error");
 
 let scene: import("./scene/colony-scene").ColonyScene | null = null;
 let dashboard: Dashboard;
+let answerModal: AnswerModal;
 const sse = new SSEClient();
 let colonyRefreshTick = 0;
 let deploying = false;
@@ -95,7 +97,15 @@ type LiveState = {
   playbook?: unknown[];
   live_phase?: string;
   live_attention?: { done?: number; total?: number; matched?: number };
+  final_answer?: string;
 };
+
+function showFinalAnswer(markdown: string, opts?: { autoOpen?: boolean }): void {
+  if (!markdown.trim()) return;
+  answerModal.setMarkdown(markdown);
+  answerModal.setViewAnswerButtonVisible(true);
+  if (opts?.autoOpen) answerModal.show(markdown);
+}
 
 function formatPhaseDetail(s: LiveState): string {
   const phase = s.live_phase ?? livePhaseRaw;
@@ -145,6 +155,7 @@ async function applyStateSnapshot(s: LiveState, opts?: { finalize?: boolean }): 
       : `Complete · tick ${liveTick}/${liveMaxTicks}`;
     modeLabel.textContent = "Complete";
     setDeployButtonsActive(false);
+    if (s.final_answer) showFinalAnswer(s.final_answer);
     return;
   }
 
@@ -248,6 +259,8 @@ function applyLiveEvent(event: SimEvent): void {
   if (event.type === "sim_complete") {
     liveTick = Math.max(liveTick, event.tick);
     livePhaseRaw = "complete";
+    const answer = String(event.payload.final_answer ?? "");
+    if (answer) showFinalAnswer(answer, { autoOpen: true });
     stopStatePolling();
     void finalizeFromServer();
     api<{ comparison?: ComparisonMetrics }>("/metrics").then((m) => {
@@ -293,6 +306,7 @@ async function deployColony() {
     }
 
     sse.reconnect();
+    answerModal.setViewAnswerButtonVisible(false);
     dashboard.switchTab("activity");
     dashboard.updateStreamStatus(false, "awaiting events");
 
@@ -341,6 +355,11 @@ async function deployColony() {
 }
 
 function wireControls(): void {
+  document.getElementById("btn-recenter")!.onclick = () => scene?.recenter();
+  document.getElementById("btn-view-answer")!.onclick = () => {
+    const md = answerModal.getLastMarkdown();
+    if (md) answerModal.show(md);
+  };
   document.getElementById("btn-solve")!.onclick = () => void deployColony();
   document.getElementById("btn-society")!.onclick = () => void deployColony();
   document.getElementById("btn-baseline")!.onclick = async () => {
@@ -397,6 +416,7 @@ async function hydrateFromState(state: {
 }
 
 async function init() {
+  answerModal = new AnswerModal();
   const { Dashboard: DashboardCtor } = await import("./ui/Dashboard");
   try {
     const { ColonyScene: ColonySceneCtor } = await import("./scene/colony-scene");
@@ -425,6 +445,9 @@ async function init() {
       attention_policy_preview?: PolicyPreview[];
     }>("/state");
     await hydrateFromState(state);
+    if (state.final_answer) {
+      showFinalAnswer(state.final_answer, { autoOpen: false });
+    }
     if (state.running) startStatePolling();
   } catch (err) {
     console.error("Initial state failed:", err);
