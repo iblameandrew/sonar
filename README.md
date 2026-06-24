@@ -22,6 +22,10 @@
 
 **Colony** is an exploration in qualitative social physics: dozens (or hundreds) of specialist agents inhabit a shared grid, negotiate tasks, resolve conflicts, and iteratively build a collaborative workspace — while you watch them move across a **Conway's Game of Life** substrate in an isometric ant-colony view.
 
+
+https://github.com/user-attachments/assets/84cb57be-42ab-4fd7-9ef4-0b94bab38531
+
+
 The society is not a chatroom. It is a **closed learning loop** where agents perform work, form dependencies, audit collective regret, reform when misaligned, and write learnings back into the weight graph. Each tick is a forward/backward pass of the transformer role model, made visible on the grid.
 
 | Mode | What happens |
