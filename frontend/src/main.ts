@@ -1,6 +1,6 @@
 import { ColonyScene } from "./scene/ColonyScene";
 import { SSEClient } from "./sse/client";
-import { Dashboard } from "./ui/Dashboard";
+import { Dashboard, type QwenStatus } from "./ui/Dashboard";
 import type { Agent, ColonyInfo, ComparisonMetrics, ProjectCanvas, SimEvent } from "./types";
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
@@ -62,16 +62,63 @@ async function deployColony() {
   dashboard.switchTab("colony");
 }
 
+function wireControls(): void {
+  document.getElementById("btn-solve")!.onclick = () => deployColony();
+  document.getElementById("btn-society")!.onclick = () => deployColony();
+  document.getElementById("btn-baseline")!.onclick = async () => {
+    modeLabel.textContent = "Baseline";
+    await api("/sim/baseline", "POST", { max_ticks: 40, speed: 1, prompt: getPrompt() });
+  };
+  document.getElementById("btn-conflict")!.onclick = () => api("/sim/inject-conflict", "POST");
+  document.getElementById("btn-step")!.onclick = () => api("/sim/step", "POST");
+  document.getElementById("btn-phase")!.onclick = () => api("/sim/advance-phase", "POST");
+  document.getElementById("btn-pause")!.onclick = () => api("/sim/pause", "POST");
+}
+
+function startRenderLoop(): void {
+  (function animate() {
+    requestAnimationFrame(animate);
+    scene.render();
+    colonyRefreshTick++;
+    if (colonyRefreshTick % 90 === 0) dashboard.refreshColony();
+  })();
+}
+
 async function init() {
-  await dashboard.loadQwen();
-  const state = await api("/state");
+  wireControls();
+  startRenderLoop();
+
+  try {
+    await dashboard.loadQwen();
+  } catch (err) {
+    console.error("Qwen status failed:", err);
+  }
+
+  let state: {
+    qwen?: QwenStatus;
+    agents?: Agent[];
+    canvas?: ProjectCanvas;
+    colony?: ColonyInfo;
+    tick?: number;
+    design_phase?: string;
+    regret?: number;
+    execution_mode?: string;
+  } | null = null;
+  try {
+    state = await api("/state");
+  } catch (err) {
+    console.error("Initial state failed:", err);
+    activeGoalEl.textContent = "Backend unreachable — start the API server on :8000.";
+    return;
+  }
+  if (!state) return;
   if (state.qwen) dashboard.updateQwen(state.qwen);
   if (state.agents?.length) {
-    scene.loadAgents(state.agents as Agent[]);
+    scene.loadAgents(state.agents);
     if (state.canvas?.colony_voxels) scene.loadColonyVoxels(state.canvas.colony_voxels);
-    dashboard.updateTasks(state.canvas as ProjectCanvas);
-    dashboard.refreshColony(state.agents as Agent[]);
-    if (state.colony) dashboard.updateColonyFromServer(state.colony as ColonyInfo);
+    dashboard.updateTasks(state.canvas);
+    dashboard.refreshColony(state.agents);
+    if (state.colony) dashboard.updateColonyFromServer(state.colony);
     if (state.canvas?.goal) {
       setActiveGoal(state.canvas.goal);
       if (!promptInput.value) promptInput.value = state.canvas.goal;
@@ -118,24 +165,6 @@ async function init() {
       api("/metrics").then((m) => { if (m.comparison) dashboard.updateMetrics(m.comparison); });
     }
   });
-
-  document.getElementById("btn-solve")!.onclick = () => deployColony();
-  document.getElementById("btn-society")!.onclick = () => deployColony();
-  document.getElementById("btn-baseline")!.onclick = async () => {
-    modeLabel.textContent = "Baseline";
-    await api("/sim/baseline", "POST", { max_ticks: 40, speed: 1, prompt: getPrompt() });
-  };
-  document.getElementById("btn-conflict")!.onclick = () => api("/sim/inject-conflict", "POST");
-  document.getElementById("btn-step")!.onclick = () => api("/sim/step", "POST");
-  document.getElementById("btn-phase")!.onclick = () => api("/sim/advance-phase", "POST");
-  document.getElementById("btn-pause")!.onclick = () => api("/sim/pause", "POST");
-
-  (function animate() {
-    requestAnimationFrame(animate);
-    scene.render();
-    colonyRefreshTick++;
-    if (colonyRefreshTick % 90 === 0) dashboard.refreshColony();
-  })();
 }
 
 function updateStatus(state: Record<string, unknown>) {

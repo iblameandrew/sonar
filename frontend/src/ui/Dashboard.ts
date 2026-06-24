@@ -180,7 +180,11 @@ export class Dashboard {
     `;
   }
 
-  updateTasks(canvas: ProjectCanvas): void {
+  updateTasks(canvas?: ProjectCanvas): void {
+    if (!canvas?.subtasks?.length) {
+      this.taskEl.innerHTML = "<p class='hint'>No tasks yet — deploy a colony to decompose your prompt.</p>";
+      return;
+    }
     this.taskEl.innerHTML = canvas.subtasks
       .map((t) => {
         const cls = t.status === "done" ? "task-done" : t.status === "in_progress" ? "task-active" : "task-pending";

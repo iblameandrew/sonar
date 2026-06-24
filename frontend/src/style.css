@@ -193,6 +193,8 @@ html, body, #app {
   border-left: 2px solid var(--panel-border);
   box-shadow: -4px 0 24px rgba(45, 90, 50, 0.08);
   min-height: 0;
+  position: relative;
+  z-index: 2;
 }
 
 .tabs {

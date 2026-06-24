@@ -105,7 +105,6 @@ export class ColonyScene {
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.resize(canvas);
     this.renderer.setClearColor(ECO.sky, 1);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.35;
@@ -113,9 +112,9 @@ export class ColonyScene {
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.Fog(ECO.skyFog, 70, 160);
 
-    this.aspect = canvas.clientWidth / canvas.clientHeight;
+    this.aspect = canvas.clientWidth / Math.max(canvas.clientHeight, 1);
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 500);
-    this.fitCamera();
+    this.resize(canvas);
 
     const hemi = new THREE.HemisphereLight(ECO.sky, ECO.grass, 1.45);
     this.scene.add(hemi);
