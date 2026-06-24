@@ -12,24 +12,45 @@ DependencyKind = Literal[
     "sustenance",
     "craft",
     "ritual",
+    "collaboration",
+    "negotiation",
 ]
 QualitativeDistance = Literal["near", "mid", "far"]
 DependencyStrength = Literal["none", "low", "med", "high"]
+SpecialistRole = Literal[
+    "voxel_architect",
+    "orchestrator",
+    "optimizer",
+    "integrator",
+    "ux_weaver",
+    "critic_evaluator",
+    "auditor",
+    "attention",
+    "generalist",
+]
 
 
 class QualitativeAgent(BaseModel):
     id: str
+    name: str = ""
+    role: SpecialistRole = "generalist"
     verbs: list[str] = Field(default_factory=list)
     nouns: list[str] = Field(default_factory=list)
     adjectives: list[str] = Field(default_factory=list)
     parent_ids: list[str] = Field(default_factory=list)
     institution_id: str | None = None
-    position: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    grid_x: int = 0
+    grid_y: int = 0
+    current_task_id: str | None = None
+
+    @property
+    def position(self) -> tuple[float, float, float]:
+        return (float(self.grid_x), 0.0, float(self.grid_y))
 
     def summary(self) -> str:
         return (
-            f"[{self.id}] verbs={self.verbs} nouns={self.nouns} "
-            f"adjectives={self.adjectives}"
+            f"[{self.id}|{self.role}] verbs={self.verbs} nouns={self.nouns} "
+            f"adjectives={self.adjectives} task={self.current_task_id}"
         )
 
 
@@ -43,6 +64,7 @@ class DependencyEntry(BaseModel):
     rationale: str
     season_weight: float = 1.0
     tick: int = 0
+    negotiation_id: str | None = None
 
     def key(self) -> tuple[str, str]:
         return (self.from_id, self.to_id)
@@ -82,6 +104,7 @@ class SocialPlaybook(BaseModel):
                 "strength": e.strength,
                 "distance": e.qualitative_distance,
                 "rationale": e.rationale,
+                "negotiation_id": e.negotiation_id,
             }
             for e in self.entries
         ]

@@ -7,20 +7,21 @@ from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
 from app.graph.simulation_graph import engine
+from app.seed import create_project_canvas, create_specialist_agents
 from app.simulation.runner import runner
 
 router = APIRouter(prefix="/api")
 
 
 class StartRequest(BaseModel):
-    agent_count: int = Field(default=10, ge=3, le=50)
-    max_ticks: int = Field(default=100, ge=1, le=1000)
+    max_ticks: int = Field(default=80, ge=1, le=500)
     speed: float = Field(default=1.0, ge=0.1, le=10.0)
 
 
 class SeasonForceRequest(BaseModel):
     macro_season: str | None = None
     micro_season: str | None = None
+    design_phase: str | None = None
 
 
 class SpeedRequest(BaseModel):
@@ -29,21 +30,22 @@ class SpeedRequest(BaseModel):
 
 @router.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "system": "THE ATTENTION AGENT"}
+    return {"status": "ok", "system": "THE ATTENTION AGENT SOCIETY", "project": "VoxForge"}
 
 
 @router.get("/state")
 async def get_state() -> dict[str, Any]:
     snapshot = runner.get_state_snapshot()
     if not snapshot:
-        from app.seed import create_seed_agents
-
         return {
             "tick": 0,
-            "agents": [a.model_dump() for a in create_seed_agents(10)],
+            "design_phase": "concept",
+            "execution_mode": "idle",
+            "agents": [a.model_dump() for a in create_specialist_agents()],
+            "canvas": create_project_canvas().model_dump(),
             "playbook": [],
             "institutions": [],
-            "raptor_nodes": [],
+            "metrics": {},
             "running": False,
         }
     return snapshot
@@ -54,26 +56,39 @@ async def stream_events() -> EventSourceResponse:
     return EventSourceResponse(runner.event_stream())
 
 
+@router.post("/sim/society")
+async def run_society(req: StartRequest) -> dict[str, Any]:
+    state = await runner.start(req.max_ticks, req.speed, mode="society")
+    return {
+        "status": "society_started",
+        "tick": state["tick"],
+        "agents": len(state["agents"]),
+        "subtasks": len(state["canvas"].subtasks),
+    }
+
+
+@router.post("/sim/baseline")
+async def run_baseline(req: StartRequest) -> dict[str, Any]:
+    result = await runner.start_baseline(req.max_ticks)
+    return result
+
+
 @router.post("/sim/start")
 async def start_sim(req: StartRequest) -> dict[str, Any]:
-    state = await runner.start(req.agent_count, req.max_ticks, req.speed)
-    return {"status": "started", "tick": state["tick"], "agents": len(state["agents"])}
+    return await run_society(req)
 
 
 @router.post("/sim/pause")
 async def pause_sim() -> dict[str, Any]:
     state = await runner.pause()
-    if not state:
-        raise HTTPException(400, "No simulation running")
-    return {"status": "paused" if state.get("paused") else "resumed", "tick": state["tick"]}
+    return {"status": "toggled", "tick": state["tick"] if state else runner.baseline_state}
 
 
 @router.post("/sim/step")
 async def step_sim() -> dict[str, Any]:
-    state = await runner.step()
-    if not state:
-        raise HTTPException(400, "No simulation — call /sim/start first")
-    return runner.get_state_snapshot() or {}
+    await runner.step()
+    snap = runner.get_state_snapshot()
+    return snap or {"baseline_tick": runner.baseline_state}
 
 
 @router.post("/sim/speed")
@@ -83,10 +98,35 @@ async def set_speed(req: SpeedRequest) -> dict[str, float]:
     return {"speed": req.speed}
 
 
+@router.post("/sim/inject-conflict")
+async def inject_conflict() -> dict[str, str]:
+    try:
+        return await runner.inject_conflict()
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@router.post("/sim/advance-phase")
+async def advance_phase() -> dict[str, str]:
+    try:
+        return await runner.advance_phase()
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@router.get("/metrics")
+async def get_metrics() -> dict[str, Any]:
+    return runner.get_metrics()
+
+
 @router.post("/season/force")
 async def force_season(req: SeasonForceRequest) -> dict[str, str | None]:
-    engine.seasons.force(req.macro_season, req.micro_season)
-    return {"macro_season": req.macro_season, "micro_season": req.micro_season}
+    engine.seasons.force(req.macro_season, req.micro_season, req.design_phase)
+    return {
+        "macro_season": req.macro_season,
+        "micro_season": req.micro_season,
+        "design_phase": req.design_phase,
+    }
 
 
 @router.get("/playbook")
@@ -94,9 +134,17 @@ async def get_playbook() -> dict[str, Any]:
     if runner.state:
         return {
             "entries": runner.state["playbook"].to_matrix_summary(),
+            "negotiations": [n.model_dump() for n in runner.state["canvas"].negotiations],
             "count": len(runner.state["playbook"].entries),
         }
-    return {"entries": [], "count": 0}
+    return {"entries": [], "negotiations": [], "count": 0}
+
+
+@router.get("/canvas")
+async def get_canvas() -> dict[str, Any]:
+    if runner.state:
+        return runner.state["canvas"].model_dump()
+    return create_project_canvas().model_dump()
 
 
 @router.get("/raptor")

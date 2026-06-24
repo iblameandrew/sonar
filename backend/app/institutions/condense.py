@@ -13,7 +13,10 @@ from app.models.agent import DependencyEntry, SocialPlaybook
 from app.models.events import SimEvent
 from app.models.institution import Institution
 
-KINDS = ["economic", "kinship", "prestige", "conflict", "sustenance", "craft", "ritual"]
+KINDS = [
+    "economic", "kinship", "prestige", "conflict", "sustenance",
+    "craft", "ritual", "collaboration", "negotiation",
+]
 DISTANCES = {"near": 0.0, "mid": 0.5, "far": 1.0}
 STRENGTHS = {"none": 0.0, "low": 0.25, "med": 0.55, "high": 0.85}
 
@@ -166,6 +169,8 @@ class InstitutionCondenser:
             "sustenance": ("Harvest Collective", {"fed": "promote", "hungry": "suppress"}),
             "craft": ("Craftsmen Hall", {"skilled": "promote", "tired": "suppress"}),
             "ritual": ("Temple Order", {"devout": "promote", "restless": "suppress"}),
+            "collaboration": ("Visualization Guild", {"collaborative": "promote", "aligned": "promote"}),
+            "negotiation": ("Orchestration Council", {"focused": "promote", "productive": "promote"}),
         }
         return templates.get(kind, ("Council", {"cooperative": "promote"}))
 

@@ -12,9 +12,9 @@ from app.api.routes import router
 load_dotenv()
 
 app = FastAPI(
-    title="THE ATTENTION AGENT",
-    description="Qualitative social physics simulation",
-    version="0.1.0",
+    title="THE ATTENTION AGENT SOCIETY",
+    description="VoxForge — multi-agent collaborative engineering society",
+    version="0.2.0",
 )
 
 app.add_middleware(

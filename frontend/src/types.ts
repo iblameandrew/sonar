@@ -1,11 +1,15 @@
 export interface Agent {
   id: string;
+  name: string;
+  role: string;
   verbs: string[];
   nouns: string[];
   adjectives: string[];
   parent_ids: string[];
   institution_id: string | null;
-  position: [number, number, number];
+  grid_x: number;
+  grid_y: number;
+  current_task_id: string | null;
 }
 
 export interface DependencyEntry {
@@ -18,16 +22,60 @@ export interface DependencyEntry {
   rationale: string;
   season_weight: number;
   tick: number;
+  negotiation_id?: string;
 }
 
-export interface Institution {
+export interface Subtask {
   id: string;
-  name: string;
-  member_ids: string[];
-  policy: Record<string, string>;
-  birthing_entry_ids: string[];
-  cluster_centroid: number[];
-  position: [number, number, number];
+  title: string;
+  description: string;
+  assigned_to: string | null;
+  status: string;
+  parent_id: string | null;
+}
+
+export interface NegotiationRound {
+  id: string;
+  tick: number;
+  topic: string;
+  proposer_id: string;
+  responder_id: string;
+  proposal: string;
+  counter_offer: string | null;
+  outcome: string;
+  rationale: string;
+}
+
+export interface ProjectCanvas {
+  goal: string;
+  requirements: string[];
+  subtasks: Subtask[];
+  artifacts: { id: string; title: string; kind: string; content: string; author_id: string }[];
+  decisions: string[];
+  negotiations: NegotiationRound[];
+  voxforge_progress: number;
+  voxforge_voxels: { x: number; y: number; z: number; color: string; label: string }[];
+}
+
+export interface RunMetrics {
+  mode: string;
+  quality_score: number;
+  iterations: number;
+  conflicts_detected: number;
+  conflicts_resolved: number;
+  negotiations: number;
+  subtasks_completed: number;
+  features_complete: number;
+  tokens_estimate: number;
+  transparency_events: number;
+}
+
+export interface ComparisonMetrics {
+  society: RunMetrics;
+  baseline: RunMetrics;
+  society_wins_quality: boolean;
+  society_wins_efficiency: boolean;
+  summary: string;
 }
 
 export interface SimEvent {
@@ -36,34 +84,21 @@ export interface SimEvent {
   payload: Record<string, unknown>;
 }
 
-export interface StateSnapshot {
-  tick: number;
-  macro_season: string;
-  micro_season: string;
-  judgment_temperature: string;
-  regret: number;
-  regret_narrative: string;
-  running: boolean;
-  paused: boolean;
-  agents: Agent[];
-  playbook: DependencyEntry[];
-  institutions: Institution[];
-  raptor_nodes: unknown[];
-}
-
 export interface LayerVisibility {
+  lifeGrid: boolean;
   agents: boolean;
   connections: boolean;
+  negotiations: boolean;
   institutions: boolean;
+  voxforge: boolean;
+  conflictArena: boolean;
+  metrics: boolean;
   birthDeath: boolean;
   attention: boolean;
   auditor: boolean;
   reformer: boolean;
   confessor: boolean;
   messenger: boolean;
-  raptor: boolean;
-  minimap: boolean;
-  labels: boolean;
 }
 
 export const KIND_COLORS: Record<string, number> = {
@@ -74,11 +109,22 @@ export const KIND_COLORS: Record<string, number> = {
   sustenance: 0xf08040,
   craft: 0x60a0c0,
   ritual: 0xc0c0f0,
+  collaboration: 0x40ff80,
+  negotiation: 0xff80ff,
+};
+
+export const ROLE_COLORS: Record<string, number> = {
+  voxel_architect: 0x60c0ff,
+  orchestrator: 0xff6060,
+  optimizer: 0xffff60,
+  integrator: 0x60ff90,
+  ux_weaver: 0xff90ff,
+  critic_evaluator: 0xffffff,
 };
 
 export const STRENGTH_SCALE: Record<string, number> = {
   none: 0,
-  low: 0.15,
-  med: 0.35,
-  high: 0.6,
+  low: 0.12,
+  med: 0.28,
+  high: 0.5,
 };

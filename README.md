@@ -1,73 +1,46 @@
-# THE ATTENTION AGENT
+# THE ATTENTION AGENT SOCIETY — VoxForge
 
-A generative-AI simulation of a society in which the transformer architecture is reborn as **qualitative social physics**. No dot-products. No softmax. Every neural mechanism is an agent playing a philosophical role.
+Hackathon Track 3: **Agent Society Design**. A living collective of specialized agents that collaboratively designs and builds **VoxForge** — a real-time collaborative engineering workspace.
 
-## Architecture
+## Track 3 Showcase
 
-| Deep Learning | Agent Role |
+| Requirement | Implementation |
 |---|---|
-| Cost Function | **The Auditor** — measures regret |
-| Feed-Forward | **The Messenger** — carries activation |
-| Backward Connection | **The Confessor** — flows consequences to causes |
-| Gradient Descent | **The Reformer** — pushes agents toward less regret |
-| Weights | **The Custodian** — persistent social memory |
-| Attention | **The Attention Agent** — qualitative dependency judgment |
+| Task decomposition & role assignment | `Decomposer` assigns subtasks to specialist agents via Attention matching |
+| Dialogue & negotiation | `Negotiator` runs structured proposal/counter-offer rounds |
+| Conflict resolution | `ConflictResolver` triggers on high Auditor regret — voting & compromise |
+| Efficiency gain | Dual mode: **Run Society** vs **Run Single Agent** with live metrics dashboard |
 
-Each tick: **PERFORM → ATTEND → AUDIT → REFORM → CONFESS**
+## Specialist Cast
 
-## Quick Start
+- **Voxel Architect** — Conway pixel-art Three.js visualization
+- **Orchestrator** — LangGraph + SSE pipeline
+- **Optimizer** — Benchmark harness & metrics
+- **Integrator** — FastAPI + frontend glue
+- **UX Weaver** — Dashboard, negotiation panel, demo controls
+- **Critic / Evaluator** — Society vs baseline comparison
 
-### Backend
+## Learning Loop
+
+**PERFORM → DECOMPOSE → ATTEND → NEGOTIATE → AUDIT → CONFLICT → REFORM → CONFESS**
+
+## Run
 
 ```bash
-cd backend
-pip install -e .
-uvicorn app.main:app --reload --port 8000
-```
+# Backend
+cd backend && pip install -e . && uvicorn app.main:app --reload --port 8000
 
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
+# Frontend
+cd frontend && npm install && npm run dev
 ```
 
 Open http://localhost:5173
 
-### Environment
+### Demo Buttons
 
-```bash
-# Optional — heuristic fallback works without it
-OPENAI_API_KEY=sk-...
-OPENAI_MODEL=gpt-4o-mini
-```
+- **Run Society** — multi-agent collaborative mode
+- **Run Single Agent** — baseline comparison
+- **Inject Conflict** — trigger conflict resolution demo
+- **Step** / **Advance Phase** / **Show Metrics**
 
-### Windows (both servers)
-
-```powershell
-.\scripts\dev.ps1
-```
-
-## API
-
-| Endpoint | Description |
-|---|---|
-| `GET /api/stream` | SSE event stream |
-| `GET /api/state` | Full simulation snapshot |
-| `POST /api/sim/start` | Start simulation |
-| `POST /api/sim/pause` | Pause/resume |
-| `POST /api/sim/step` | Single tick |
-| `POST /api/season/force` | Force macro/micro season |
-| `GET /api/playbook` | Social playbook |
-| `GET /api/raptor` | Seasonal memory tree |
-
-## Visualization
-
-Three.js voxel-art world with:
-- InstancedMesh agents encoding verbs/nouns/adjectives
-- Glowing dependency connections (kind = color, strength = thickness)
-- Institution structures with build/dissolve animations
-- Seasonal palette transitions
-- Tweakpane controls for every mechanism layer
-- Click-to-inspect, minimap, screenshot, glTF export
+Optional: `OPENAI_API_KEY` for LLM-enhanced judgments (heuristic fallback included).

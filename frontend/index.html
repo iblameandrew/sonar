@@ -3,18 +3,54 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>THE ATTENTION AGENT</title>
+    <title>VoxForge — THE ATTENTION AGENT SOCIETY</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
     <div id="app">
+      <header id="top-bar">
+        <h1>VOXFORGE</h1>
+        <span class="subtitle">Attention Agent Society · Track 3 Demo</span>
+      </header>
+
+      <div id="demo-controls">
+        <button id="btn-society" class="demo-btn primary">Run Society</button>
+        <button id="btn-baseline" class="demo-btn">Run Single Agent</button>
+        <button id="btn-conflict" class="demo-btn warn">Inject Conflict</button>
+        <button id="btn-step" class="demo-btn">Step</button>
+        <button id="btn-phase" class="demo-btn">Advance Phase</button>
+        <button id="btn-metrics" class="demo-btn">Show Metrics</button>
+        <button id="btn-pause" class="demo-btn">Pause</button>
+      </div>
+
       <canvas id="canvas"></canvas>
+
+      <aside id="side-panel">
+        <section id="metrics-panel" class="panel">
+          <h3>Metrics — Society vs Baseline</h3>
+          <div id="metrics-content">Start a run to compare.</div>
+        </section>
+        <section id="negotiation-panel" class="panel">
+          <h3>Negotiations</h3>
+          <div id="negotiation-log"></div>
+        </section>
+        <section id="task-panel" class="panel">
+          <h3>Task Decomposition</h3>
+          <div id="task-tree"></div>
+        </section>
+        <section id="event-log" class="panel">
+          <h3>Live Event Log</h3>
+          <div id="log-content"></div>
+        </section>
+      </aside>
+
       <div id="inspect-panel" class="hidden"></div>
-      <canvas id="minimap" class="hidden"></canvas>
+
       <div id="status-bar">
         <span id="tick-label">Tick: 0</span>
-        <span id="season-label">Season: —</span>
+        <span id="phase-label">Phase: concept</span>
         <span id="regret-label">Regret: —</span>
+        <span id="mode-label">Mode: idle</span>
       </div>
     </div>
     <script type="module" src="/src/main.ts"></script>

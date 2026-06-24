@@ -8,12 +8,16 @@ from langgraph.graph import END, StateGraph
 from app.agents.attention import AttentionAgent
 from app.agents.auditor import Auditor
 from app.agents.confessor import Confessor
+from app.agents.conflict_resolver import ConflictResolver
+from app.agents.decomposer import Decomposer
 from app.agents.messenger import Messenger
+from app.agents.negotiator import Negotiator
 from app.agents.reformer import Reformer
+from app.baseline.single_agent import SingleAgentBaseline
 from app.institutions.condense import InstitutionCondenser
 from app.lifecycle.rules import LifecycleRules
-from app.models.agent import SocialPlaybook
 from app.models.events import SimEvent
+from app.models.metrics import RunMetrics
 from app.models.state import SimulationState
 from app.seasons.raptor import RaptorMemory
 from app.seasons.scheduler import SeasonScheduler
@@ -24,8 +28,11 @@ from app.store.playbook import PlaybookStore
 class SimulationEngine:
     def __init__(self) -> None:
         self.messenger = Messenger()
+        self.decomposer = Decomposer()
         self.attention = AttentionAgent()
+        self.negotiator = Negotiator()
         self.auditor = Auditor()
+        self.conflict = ConflictResolver()
         self.reformer = Reformer()
         self.confessor = Confessor()
         self.lifecycle = LifecycleRules()
@@ -34,6 +41,7 @@ class SimulationEngine:
         self.raptor = RaptorMemory()
         self.custodian = Custodian()
         self.playbook_store = PlaybookStore()
+        self.baseline = SingleAgentBaseline()
 
 
 engine = SimulationEngine()
@@ -41,15 +49,25 @@ engine = SimulationEngine()
 
 async def perform_node(state: SimulationState) -> dict[str, Any]:
     tick = state["tick"]
-    agents, events = engine.messenger.perform(
-        state["agents"], state["institutions"], tick
+    phase = state.get("design_phase", "concept")
+    agents, canvas, events = engine.messenger.perform(
+        state["agents"], state["institutions"], state["canvas"], tick, phase
     )
-    return {"agents": agents, "events": events}
+    return {"agents": agents, "canvas": canvas, "events": events}
+
+
+async def decompose_node(state: SimulationState) -> dict[str, Any]:
+    tick = state["tick"]
+    phase = state.get("design_phase", "concept")
+    canvas, agents, events = engine.decomposer.decompose(
+        state["canvas"], state["agents"], tick, phase
+    )
+    return {"canvas": canvas, "agents": agents, "events": events}
 
 
 async def attend_node(state: SimulationState) -> dict[str, Any]:
     tick = state["tick"]
-    macro, micro, temperature, dominant_kind, season_weight, season_event = (
+    macro, micro, phase, temperature, dominant_kind, season_weight, season_event = (
         engine.seasons.resolve(tick)
     )
 
@@ -70,34 +88,89 @@ async def attend_node(state: SimulationState) -> dict[str, Any]:
         playbook.add(entry)
         engine.playbook_store.append(entry)
         events.append(
-            SimEvent(
-                type="attention_judgment",
-                tick=tick,
-                payload=entry.model_dump(),
-            )
+            SimEvent(type="attention_judgment", tick=tick, payload=entry.model_dump())
         )
+
+    canvas, extra, neg_events = engine.negotiator.negotiate(
+        state["canvas"], state["agents"], entries, tick
+    )
+    for entry in extra:
+        playbook.add(entry)
+        engine.playbook_store.append(entry)
+        events.append(
+            SimEvent(type="attention_judgment", tick=tick, payload=entry.model_dump())
+        )
+    events.extend(neg_events)
 
     return {
         "playbook": playbook,
+        "canvas": canvas,
         "macro_season": macro,
         "micro_season": micro,
+        "design_phase": phase,
         "judgment_temperature": temperature,
         "events": events,
     }
+
+
+async def negotiate_node(state: SimulationState) -> dict[str, Any]:
+    return {"events": []}
 
 
 async def audit_node(state: SimulationState) -> dict[str, Any]:
     tick = state["tick"]
     regret, narrative, event = engine.auditor.audit(
         state["agents"],
+        state["canvas"],
         state["ought_snapshot"],
         len(state["playbook"].entries),
         tick,
+        inject_conflict=state.get("inject_conflict", False),
     )
+    metrics = state["metrics"]
+    if state.get("execution_mode") == "society":
+        m = metrics.society
+        m.iterations = tick + 1
+        m.quality_score = 1.0 - regret
+        m.negotiations = len(state["canvas"].negotiations)
+        m.subtasks_completed = sum(
+            1 for t in state["canvas"].subtasks if t.status == "done"
+        )
+        m.features_complete = state["canvas"].voxforge_progress
+        m.transparency_events += 1
+        if event.payload.get("conflict_detected"):
+            m.conflicts_detected += 1
+        m.tokens_estimate = 1200 + tick * 250 * len(state["agents"])
+
     return {
         "regret": regret,
         "regret_narrative": narrative,
+        "inject_conflict": False,
+        "metrics": metrics,
         "events": [event],
+    }
+
+
+async def conflict_node(state: SimulationState) -> dict[str, Any]:
+    tick = state["tick"]
+    canvas, agents, events, resolved = engine.conflict.resolve(
+        state["canvas"],
+        state["agents"],
+        state["regret"],
+        state["regret_narrative"],
+        tick,
+        forced=state.get("inject_conflict", False),
+    )
+    metrics = state["metrics"]
+    if resolved and state.get("execution_mode") == "society":
+        metrics.society.conflicts_resolved += 1
+
+    return {
+        "canvas": canvas,
+        "agents": agents,
+        "conflict_active": resolved,
+        "metrics": metrics,
+        "events": events,
     }
 
 
@@ -142,14 +215,29 @@ async def confess_node(state: SimulationState) -> dict[str, Any]:
         tick,
     )
 
-    all_events = events + inst_events + life_events + raptor_events
+    metrics = state["metrics"]
+    metrics.compute_summary()
+    metrics_event = SimEvent(
+        type="society_metrics",
+        tick=tick,
+        payload=metrics.model_dump(),
+    )
+
+    all_events = events + inst_events + life_events + raptor_events + [metrics_event]
     return {
         "agents": agents,
         "institutions": institutions,
         "quality_pool": pool,
         "raptor_nodes": raptor_nodes,
+        "metrics": metrics,
         "events": all_events,
     }
+
+
+def route_after_audit(state: SimulationState) -> str:
+    if state["regret"] >= 0.55 or state.get("inject_conflict"):
+        return "conflict"
+    return "reform"
 
 
 def should_continue(state: SimulationState) -> str:
@@ -168,16 +256,26 @@ def build_simulation_graph():
     graph = StateGraph(SimulationState)
 
     graph.add_node("perform", perform_node)
+    graph.add_node("decompose", decompose_node)
     graph.add_node("attend", attend_node)
+    graph.add_node("negotiate", negotiate_node)
     graph.add_node("audit", audit_node)
+    graph.add_node("conflict", conflict_node)
     graph.add_node("reform", reform_node)
     graph.add_node("confess", confess_node)
     graph.add_node("increment", increment_tick)
 
     graph.set_entry_point("perform")
-    graph.add_edge("perform", "attend")
-    graph.add_edge("attend", "audit")
-    graph.add_edge("audit", "reform")
+    graph.add_edge("perform", "decompose")
+    graph.add_edge("decompose", "attend")
+    graph.add_edge("attend", "negotiate")
+    graph.add_edge("negotiate", "audit")
+    graph.add_conditional_edges(
+        "audit",
+        route_after_audit,
+        {"conflict": "conflict", "reform": "reform"},
+    )
+    graph.add_edge("conflict", "reform")
     graph.add_edge("reform", "confess")
     graph.add_edge("confess", "increment")
     graph.add_conditional_edges(

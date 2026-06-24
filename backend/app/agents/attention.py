@@ -33,6 +33,13 @@ HEURISTIC_KIND_MAP = {
     "heal": "sustenance",
     "judge": "prestige",
     "sail": "economic",
+    "orchestrate": "collaboration",
+    "render": "craft",
+    "benchmark": "economic",
+    "wire": "collaboration",
+    "layout": "craft",
+    "evaluate": "prestige",
+    "mediate": "negotiation",
 }
 
 

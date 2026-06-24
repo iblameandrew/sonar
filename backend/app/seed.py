@@ -1,94 +1,152 @@
 from __future__ import annotations
 
-import math
 import uuid
 
-from app.models.agent import QualitativeAgent
+from app.models.agent import QualitativeAgent, SpecialistRole
+from app.models.canvas import ProjectCanvas, Subtask
 
+VOXFORGE_REQUIREMENTS = [
+    "Interactive voxel-art 3D visualization of agent societies",
+    "LangGraph orchestration with live SSE updates",
+    "Task decomposition UI and negotiation panel",
+    "Conflict resolution tools and live metrics dashboard",
+    "FastAPI backend + Three.js frontend integration",
+    "Automatic benchmarking against single-agent baseline",
+]
 
-def _position(index: int, total: int) -> tuple[float, float, float]:
-    angle = (2 * math.pi * index) / max(total, 1)
-    radius = 8 + (index % 3) * 2
-    return (math.cos(angle) * radius, 0.0, math.sin(angle) * radius)
-
-
-SEED_AGENTS: list[dict] = [
+SPECIALISTS: list[dict] = [
     {
-        "verbs": ["farm", "trade"],
-        "nouns": ["grain", "tools"],
-        "adjectives": ["hungry", "diligent"],
+        "name": "Voxel Architect",
+        "role": "voxel_architect",
+        "verbs": ["render", "animate", "instanciate"],
+        "nouns": ["voxels", "meshes", "shaders"],
+        "adjectives": ["visual", "precise"],
+        "grid": (4, 8),
     },
     {
-        "verbs": ["build", "repair"],
-        "nouns": ["lumber", "stone"],
-        "adjectives": ["skilled", "tired"],
+        "name": "Orchestrator",
+        "role": "orchestrator",
+        "verbs": ["orchestrate", "stream", "checkpoint"],
+        "nouns": ["langgraph", "sse", "state"],
+        "adjectives": ["coordinated", "reliable"],
+        "grid": (12, 8),
     },
     {
-        "verbs": ["hunt", "guard"],
-        "nouns": ["meat", "spear"],
-        "adjectives": ["alert", "lonely"],
+        "name": "Optimizer",
+        "role": "optimizer",
+        "verbs": ["benchmark", "profile", "tune"],
+        "nouns": ["metrics", "latency", "throughput"],
+        "adjectives": ["efficient", "analytical"],
+        "grid": (20, 8),
     },
     {
-        "verbs": ["weave", "teach"],
-        "nouns": ["cloth", "kin"],
-        "adjectives": ["trusted", "patient"],
+        "name": "Integrator",
+        "role": "integrator",
+        "verbs": ["wire", "deploy", "proxy"],
+        "nouns": ["fastapi", "vite", "cors"],
+        "adjectives": ["connected", "robust"],
+        "grid": (8, 16),
     },
     {
-        "verbs": ["cook", "heal"],
-        "nouns": ["herbs", "fire"],
-        "adjectives": ["generous", "weary"],
+        "name": "UX Weaver",
+        "role": "ux_weaver",
+        "verbs": ["layout", "toggle", "dashboard"],
+        "nouns": ["panels", "controls", "overlays"],
+        "adjectives": ["judge-friendly", "clear"],
+        "grid": (16, 16),
     },
     {
-        "verbs": ["sing", "mediate"],
-        "nouns": ["song", "feast"],
-        "adjectives": ["prestigious", "calm"],
-    },
-    {
-        "verbs": ["mine", "smelt"],
-        "nouns": ["ore", "furnace"],
-        "adjectives": ["stubborn", "rich"],
-    },
-    {
-        "verbs": ["sail", "fish"],
-        "nouns": ["boat", "net"],
-        "adjectives": ["restless", "brave"],
-    },
-    {
-        "verbs": ["pray", "judge"],
-        "nouns": ["temple", "law"],
-        "adjectives": ["austere", "wise"],
-    },
-    {
-        "verbs": ["steal", "spy"],
-        "nouns": ["secrets", "dagger"],
-        "adjectives": ["feared", "cunning"],
+        "name": "Critic",
+        "role": "critic_evaluator",
+        "verbs": ["evaluate", "compare", "score"],
+        "nouns": ["baseline", "rubric", "evidence"],
+        "adjectives": ["rigorous", "skeptical"],
+        "grid": (24, 16),
     },
 ]
 
+INITIAL_SUBTASKS = [
+    ("Architecture", "Define VoxForge system architecture and module boundaries", None),
+    ("Voxel Viz", "Implement Conway-style pixel-art society visualization", "Architecture"),
+    ("LangGraph Core", "Build PERFORM→ATTEND→AUDIT→REFORM→CONFESS graph", "Architecture"),
+    ("SSE Pipeline", "Wire live SSE event stream to frontend", "LangGraph Core"),
+    ("Negotiation UI", "Build negotiation panel and task tree UI", "Architecture"),
+    ("Metrics Dashboard", "Implement society vs baseline comparison", "Architecture"),
+    ("Integration", "FastAPI + Three.js production integration", "Architecture"),
+    ("Benchmark Harness", "Single-agent baseline runner", "Metrics Dashboard"),
+]
 
-def create_seed_agents(count: int | None = None) -> list[QualitativeAgent]:
-    specs = SEED_AGENTS[: count or len(SEED_AGENTS)]
+
+def create_specialist_agents() -> list[QualitativeAgent]:
     agents: list[QualitativeAgent] = []
-    for i, spec in enumerate(specs):
+    for spec in SPECIALISTS:
         agents.append(
             QualitativeAgent(
                 id=f"agent-{uuid.uuid4().hex[:8]}",
+                name=spec["name"],
+                role=spec["role"],  # type: ignore[arg-type]
                 verbs=list(spec["verbs"]),
                 nouns=list(spec["nouns"]),
                 adjectives=list(spec["adjectives"]),
-                position=_position(i, len(specs)),
+                grid_x=spec["grid"][0],
+                grid_y=spec["grid"][1],
             )
         )
     return agents
 
 
+def create_project_canvas() -> ProjectCanvas:
+    subtasks: list[Subtask] = []
+    id_map: dict[str, str] = {}
+    for title, desc, parent_title in INITIAL_SUBTASKS:
+        tid = f"task-{uuid.uuid4().hex[:6]}"
+        id_map[title] = tid
+        subtasks.append(
+            Subtask(
+                id=tid,
+                title=title,
+                description=desc,
+                parent_id=id_map.get(parent_title) if parent_title else None,
+            )
+        )
+    return ProjectCanvas(
+        goal="Design and build VoxForge collaborative engineering workspace",
+        requirements=VOXFORGE_REQUIREMENTS,
+        subtasks=subtasks,
+    )
+
+
 DEFAULT_OUGHT: dict = {
-    "description": "A society where all members are fed, trusted, and purposeful",
-    "desired_adjectives": ["fed", "trusted", "purposeful", "cooperative"],
+    "description": "VoxForge must be demo-ready with society outperforming single-agent baseline",
+    "desired_adjectives": ["collaborative", "transparent", "efficient", "demo-ready"],
     "desired_balance": {
-        "sustenance": "high",
-        "kinship": "high",
-        "prestige": "moderate",
-        "conflict": "low",
+        "quality": "high",
+        "transparency": "high",
+        "conflict_resolution": "active",
+        "feature_completeness": "high",
     },
+    "voxforge_modules": [
+        "voxel_visualization",
+        "langgraph_orchestration",
+        "sse_streaming",
+        "negotiation_panel",
+        "metrics_dashboard",
+        "baseline_comparison",
+    ],
 }
+
+
+VOXFORGE_VOXEL_BLUEPRINT = [
+    {"x": 30, "y": 4, "z": 0, "color": "#4060a0", "label": "backend_tower"},
+    {"x": 31, "y": 4, "z": 0, "color": "#4060a0", "label": "backend_tower"},
+    {"x": 32, "y": 4, "z": 0, "color": "#60c080", "label": "sse_pipe"},
+    {"x": 33, "y": 4, "z": 0, "color": "#f0c040", "label": "ui_panel"},
+    {"x": 34, "y": 4, "z": 0, "color": "#f0c040", "label": "ui_panel"},
+    {"x": 35, "y": 5, "z": 0, "color": "#c080f0", "label": "metrics_crystal"},
+    {"x": 36, "y": 4, "z": 0, "color": "#40c070", "label": "viz_guild"},
+    {"x": 37, "y": 4, "z": 0, "color": "#40c070", "label": "viz_guild"},
+]
+
+
+def create_seed_agents(count: int | None = None) -> list[QualitativeAgent]:
+    return create_specialist_agents()

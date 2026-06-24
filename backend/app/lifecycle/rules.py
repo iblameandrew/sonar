@@ -5,9 +5,10 @@ import uuid
 from app.models.agent import QualitativeAgent, SocialPlaybook
 from app.models.events import SimEvent
 
-OVERLOAD_THRESHOLD = 12
-BIRTH_INCOMING_HIGH = 3
-SURVIVE_MIN_STRONG = 2
+OVERLOAD_THRESHOLD = 20
+BIRTH_INCOMING_HIGH = 4
+SURVIVE_MIN_STRONG = 1
+GRACE_TICKS = 20
 
 
 class LifecycleRules:
@@ -27,6 +28,10 @@ class LifecycleRules:
             incoming_high = [
                 e for e in playbook.incoming(agent.id) if e.strength == "high"
             ]
+
+            if tick < GRACE_TICKS:
+                surviving.append(agent)
+                continue
 
             if len(strong) < SURVIVE_MIN_STRONG:
                 pool.extend(agent.nouns)
@@ -75,7 +80,8 @@ class LifecycleRules:
                             "verbs": child.verbs,
                             "nouns": child.nouns,
                             "adjectives": child.adjectives,
-                            "position": child.position,
+                            "grid_x": child.grid_x,
+                        "grid_y": child.grid_y,
                         },
                     )
                 )
@@ -115,12 +121,14 @@ class LifecycleRules:
         nouns = list(dict.fromkeys(nouns))[:3]
         adjectives = list(dict.fromkeys(adjectives))[:4]
 
-        px, py, pz = parent.position
         return QualitativeAgent(
             id=f"agent-{uuid.uuid4().hex[:8]}",
+            name=f"Offspring of {parent.name}",
+            role=parent.role,
             verbs=verbs or ["observe"],
             nouns=nouns or ["spark"],
             adjectives=adjectives or ["curious"],
             parent_ids=[parent.id],
-            position=(px + 1.5, py, pz + 1.0),
+            grid_x=parent.grid_x + 1,
+            grid_y=parent.grid_y + 1,
         )
