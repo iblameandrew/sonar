@@ -373,6 +373,28 @@ html, body, #app {
 }
 .qwen-error { color: #c62828; font-size: 11px; margin-top: 6px; line-height: 1.4; }
 
+.genai-config-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.genai-config-row label {
+  min-width: 72px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.genai-config-row select,
+.genai-config-row input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 2px solid var(--panel-border);
+  background: #fff;
+  font-family: inherit;
+  font-size: 11px;
+}
+
 .api-key-row { display: flex; gap: 8px; margin-bottom: 8px; }
 .api-key-row input {
   flex: 1;

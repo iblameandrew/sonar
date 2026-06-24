@@ -334,7 +334,7 @@ async function deployColony() {
       dashboard.logEvent({
         type: "qwen_offline",
         tick: 0,
-        payload: { message: "No API key — running heuristic agents only. Connect in Settings for Qwen Cloud." },
+        payload: { message: "No API key — running heuristic agents only. Connect in Settings (DashScope or OpenRouter)." },
       });
     }
 

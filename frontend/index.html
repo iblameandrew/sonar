@@ -149,8 +149,19 @@
             </section>
 
             <section class="tab-panel" id="tab-settings">
-              <h2>Qwen Cloud API</h2>
-              <p class="hint">All agents use DashScope. Key is sent to the backend for the current session.</p>
+              <h2>GenAI Backend</h2>
+              <p class="hint">Choose DashScope (Qwen) or OpenRouter. Key is sent to the backend for the current session.</p>
+              <div class="genai-config-row">
+                <label for="genai-backend">Provider</label>
+                <select id="genai-backend">
+                  <option value="dashscope">Qwen Cloud (DashScope)</option>
+                  <option value="openrouter">OpenRouter</option>
+                </select>
+              </div>
+              <div id="openrouter-model-row" class="genai-config-row hidden">
+                <label for="openrouter-model">Model slug</label>
+                <input id="openrouter-model" type="text" placeholder="nex-agi/nex-n2-pro" autocomplete="off" />
+              </div>
               <div class="api-key-row">
                 <input id="api-key-input" type="password" placeholder="sk-… DashScope API key" autocomplete="off" />
                 <button id="btn-save-key" class="btn btn-primary">Connect</button>
@@ -162,9 +173,11 @@
               <p class="hint hint-warn">Keys persist in local storage and auto-restore on reload — avoid on shared computers.</p>
               <div id="qwen-status" class="status-card">Loading provider status…</div>
 
-              <h2>Model per Role</h2>
-              <p class="hint">Qwen3.x catalogue (June 2026) — pinned releases for reproducible runs.</p>
-              <div id="qwen-models" class="model-list"></div>
+              <div id="dashscope-models-section">
+                <h2>Model per Role</h2>
+                <p class="hint">Qwen3.x catalogue (June 2026) — pinned releases for reproducible runs.</p>
+                <div id="qwen-models" class="model-list"></div>
+              </div>
 
               <h2>Visual Layers</h2>
               <div id="layer-toggles" class="layer-grid"></div>

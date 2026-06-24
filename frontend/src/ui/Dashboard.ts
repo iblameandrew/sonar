@@ -10,7 +10,16 @@ import {
   type AttentionPolicy,
   type PolicyPreview,
 } from "../attentionPolicy";
-import { getStoredApiKey, saveApiKey } from "../storage/apiKeyStorage";
+import {
+  DEFAULT_OPENROUTER_MODEL,
+  getStoredApiKey,
+  getStoredBackend,
+  getStoredModelSlug,
+  saveApiKey,
+  saveBackend,
+  saveModelSlug,
+  type GenAIBackend,
+} from "../storage/apiKeyStorage";
 import type { Agent, ColonyInfo, ComparisonMetrics, NegotiationRound, ProjectCanvas, SimEvent } from "../types";
 import { DASHBOARD_ROLES, roleLabel } from "../agentRoles";
 import type { ColonyScene } from "../scene/colony-scene";
@@ -37,11 +46,16 @@ const CATEGORY_LABELS: Record<string, string> = {
   vision: "Vision",
   coder: "Coder",
   legacy: "Legacy",
+  openrouter: "OpenRouter",
 };
 
 export interface QwenStatus {
   provider: string;
+  backend?: GenAIBackend;
+  model_slug?: string;
+  base_url?: string;
   configured: boolean;
+  auth_disabled?: boolean;
   key_valid?: boolean;
   validation_message?: string;
   api_key_masked: string;
@@ -71,6 +85,11 @@ export class Dashboard {
   private badgeEl: HTMLElement;
   private apiInput: HTMLInputElement;
   private rememberKeyInput: HTMLInputElement;
+  private backendSelect: HTMLSelectElement;
+  private openrouterModelInput: HTMLInputElement;
+  private openrouterModelRow: HTMLElement;
+  private dashscopeModelsSection: HTMLElement;
+  private sessionKeyRejected = false;
   private colonyStatsEl: HTMLElement;
   private sectorEl: HTMLElement;
   private registryEl: HTMLElement;
@@ -97,6 +116,10 @@ export class Dashboard {
     this.badgeEl = document.getElementById("qwen-badge")!;
     this.apiInput = document.getElementById("api-key-input") as HTMLInputElement;
     this.rememberKeyInput = document.getElementById("api-key-remember") as HTMLInputElement;
+    this.backendSelect = document.getElementById("genai-backend") as HTMLSelectElement;
+    this.openrouterModelInput = document.getElementById("openrouter-model") as HTMLInputElement;
+    this.openrouterModelRow = document.getElementById("openrouter-model-row")!;
+    this.dashscopeModelsSection = document.getElementById("dashscope-models-section")!;
     this.colonyStatsEl = document.getElementById("colony-stats")!;
     this.sectorEl = document.getElementById("sector-stats")!;
     this.registryEl = document.getElementById("agent-registry")!;
@@ -271,29 +294,121 @@ export class Dashboard {
     this.rememberKeyInput.checked = true;
     this.rememberKeyInput.disabled = true;
 
+    this.backendSelect.value = getStoredBackend();
+    this.openrouterModelInput.value = getStoredModelSlug();
+    this.syncGenaiFormUi(this.backendSelect.value as GenAIBackend);
+
+    this.backendSelect.addEventListener("change", () => {
+      const backend = this.backendSelect.value as GenAIBackend;
+      saveBackend(backend);
+      this.syncGenaiFormUi(backend);
+      void this.applyGenaiConfigure({ silent: true });
+    });
+
+    this.openrouterModelInput.addEventListener("change", () => {
+      saveModelSlug(this.openrouterModelInput.value);
+      void this.applyGenaiConfigure({ silent: true });
+    });
+
     document.getElementById("btn-save-key")!.addEventListener("click", async () => {
       const key = this.apiInput.value.trim();
       if (!key) return;
+      this.sessionKeyRejected = false;
       await this.submitApiKey(key);
     });
   }
 
+  private syncGenaiFormUi(backend: GenAIBackend): void {
+    const isOpenRouter = backend === "openrouter";
+    this.openrouterModelRow.classList.toggle("hidden", !isOpenRouter);
+    this.dashscopeModelsSection.classList.toggle("hidden", isOpenRouter);
+    this.apiInput.placeholder = isOpenRouter
+      ? "sk-or-… OpenRouter API key"
+      : "sk-… DashScope API key";
+    if (isOpenRouter && !this.openrouterModelInput.value.trim()) {
+      this.openrouterModelInput.value = DEFAULT_OPENROUTER_MODEL;
+    }
+  }
+
+  private currentGenaiPrefs(): { backend: GenAIBackend; model_slug?: string } {
+    const backend = this.backendSelect.value as GenAIBackend;
+    const model_slug =
+      backend === "openrouter"
+        ? this.openrouterModelInput.value.trim() || DEFAULT_OPENROUTER_MODEL
+        : undefined;
+    return { backend, model_slug };
+  }
+
+  private async applyGenaiConfigure(opts?: { silent?: boolean }): Promise<QwenStatus | null> {
+    const { backend, model_slug } = this.currentGenaiPrefs();
+    saveBackend(backend);
+    if (model_slug) saveModelSlug(model_slug);
+
+    const body = JSON.stringify({ backend, model_slug: model_slug ?? null });
+    const headers = { "Content-Type": "application/json" };
+    let res = await fetch("/api/qwen/setup", { method: "POST", headers, body });
+    if (!res.ok) {
+      res = await fetch("/api/genai/configure", { method: "POST", headers, body });
+    }
+    if (!res.ok) return null;
+
+    const status: QwenStatus = await res.json();
+    this.syncStatusToUi(status);
+    if (!opts?.silent) this.renderQwen(status);
+    return status;
+  }
+
+  private syncStatusToUi(status: QwenStatus): void {
+    if (status.backend) {
+      saveBackend(status.backend);
+      this.backendSelect.value = status.backend;
+    }
+    if (status.model_slug) {
+      saveModelSlug(status.model_slug);
+      this.openrouterModelInput.value = status.model_slug;
+    }
+    this.syncGenaiFormUi((status.backend ?? getStoredBackend()) as GenAIBackend);
+  }
+
+  private providerName(backend?: GenAIBackend): string {
+    return backend === "openrouter" ? "OpenRouter" : "DashScope";
+  }
+
   private async submitApiKey(key: string, opts?: { silent?: boolean }): Promise<QwenStatus | null> {
+    const { backend, model_slug } = this.currentGenaiPrefs();
+    saveBackend(backend);
+    if (model_slug) saveModelSlug(model_slug);
+
     const res = await fetch("/api/qwen/api-key", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ api_key: key }),
+      body: JSON.stringify({ api_key: key, backend, model_slug }),
     });
     if (!res.ok) return null;
 
     const status: QwenStatus = await res.json();
+    this.syncStatusToUi(status);
+
+    if (status.backend && status.backend !== backend) {
+      const msg = `Backend mismatch: UI requested ${backend} but server is on ${status.backend}.`;
+      this.logEvent({ type: "qwen_auth_failed", tick: 0, payload: { message: msg } });
+      if (!opts?.silent) alert(msg);
+      this.renderQwen(status);
+      return status;
+    }
+
     this.renderQwen(status);
     if (status.key_valid) {
-      saveApiKey(key);
+      this.sessionKeyRejected = false;
+      saveApiKey(key, status.backend ?? backend);
       this.apiInput.placeholder = status.api_key_masked
         ? `Saved ${status.api_key_masked} — paste to replace`
-        : "sk-… DashScope API key";
+        : backend === "openrouter"
+          ? "sk-or-… OpenRouter API key"
+          : "sk-… DashScope API key";
+      this.apiInput.value = "";
     } else {
+      this.sessionKeyRejected = true;
       const msg = status.validation_message ?? status.last_error ?? "Invalid API key";
       this.logEvent({
         type: "qwen_auth_failed",
@@ -301,7 +416,10 @@ export class Dashboard {
         payload: { message: msg },
       });
       if (!opts?.silent) {
-        alert(`DashScope rejected this API key.\n\n${msg}\n\nSimulation will use heuristic agents until you connect a valid key.`);
+        const provider = this.providerName(backend);
+        alert(
+          `${provider} rejected this API key.\n\n${msg}\n\nSimulation will use heuristic agents until you connect a valid key.`,
+        );
       }
     }
 
@@ -310,14 +428,23 @@ export class Dashboard {
   }
 
   async restoreStoredApiKey(status?: QwenStatus): Promise<void> {
-    if (status?.configured) {
+    if (status) this.syncStatusToUi(status);
+
+    if (
+      status?.configured &&
+      status.key_valid !== false &&
+      !status.auth_disabled &&
+      status.backend === getStoredBackend()
+    ) {
       if (status.api_key_masked) {
         this.apiInput.placeholder = `Saved ${status.api_key_masked} — paste to replace`;
       }
       return;
     }
 
-    const stored = getStoredApiKey();
+    if (status?.auth_disabled || this.sessionKeyRejected) return;
+
+    const stored = getStoredApiKey(getStoredBackend());
     if (!stored) return;
 
     await this.submitApiKey(stored, { silent: true });
@@ -326,12 +453,20 @@ export class Dashboard {
   async ensureApiKey(): Promise<boolean> {
     const res = await fetch("/api/qwen/status");
     const status: QwenStatus = await res.json();
+    this.renderQwen(status);
+
     if (status.configured && status.key_valid !== false) {
-      this.renderQwen(status);
       return true;
     }
-    const stored = getStoredApiKey();
+
+    if (status.auth_disabled || this.sessionKeyRejected || (status.api_key_masked && status.key_valid === false)) {
+      return false;
+    }
+
+    const backend = getStoredBackend();
+    const stored = getStoredApiKey(backend);
     if (!stored) return false;
+
     const restored = await this.submitApiKey(stored, { silent: true });
     return Boolean(restored?.configured && restored?.key_valid);
   }
@@ -361,6 +496,11 @@ export class Dashboard {
   }
 
   async loadQwen(): Promise<void> {
+    this.backendSelect.value = getStoredBackend();
+    this.openrouterModelInput.value = getStoredModelSlug();
+    this.syncGenaiFormUi(getStoredBackend());
+    await this.applyGenaiConfigure({ silent: true });
+
     const res = await fetch("/api/qwen/status");
     const status: QwenStatus = await res.json();
     this.renderQwen(status);
@@ -371,22 +511,71 @@ export class Dashboard {
     this.renderQwen(status);
   }
 
+  private escHtml(text: string): string {
+    return text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
   private renderQwen(status: QwenStatus): void {
-    const ok = status.configured;
-    this.badgeEl.textContent = ok ? "Qwen Cloud ✓" : "Qwen offline";
+    this.syncStatusToUi(status);
+    const backend = (status.backend ?? getStoredBackend()) as GenAIBackend;
+    const isOpenRouter = backend === "openrouter";
+    const ok = Boolean(status.configured && status.key_valid !== false && !status.auth_disabled);
+
+    const badgeLabel = isOpenRouter
+      ? ok
+        ? "OpenRouter OK"
+        : "OpenRouter offline"
+      : ok
+        ? "Qwen Cloud OK"
+        : "Qwen offline";
+    this.badgeEl.textContent = badgeLabel;
     this.badgeEl.className = `badge ${ok ? "badge-ok" : "badge-warn"}`;
 
+    if (status.auth_disabled || (status.api_key_masked && status.key_valid === false)) {
+      this.sessionKeyRejected = true;
+    }
+
     const u = status.usage;
-    const errLine = status.last_error
-      ? `<div class="qwen-error">Last error: ${status.last_error}</div>`
+    const modelSlug = status.model_slug ?? (isOpenRouter ? getStoredModelSlug() : "");
+    const modelLine =
+      isOpenRouter && modelSlug
+        ? `Model: <code>${this.escHtml(modelSlug)}</code><br/>`
+        : "";
+    const endpointLine = status.base_url
+      ? `Endpoint: <code>${this.escHtml(status.base_url)}</code><br/>`
+      : "";
+    const providerLabel = status.provider ?? (isOpenRouter ? "OpenRouter" : "DashScope");
+    const safeMsg = this.escHtml(status.status_message ?? "");
+    const safeProvider = this.escHtml(providerLabel);
+    const safeValidation =
+      status.validation_message && status.key_valid !== undefined
+        ? `${status.key_valid ? "[OK]" : "[FAIL]"} ${this.escHtml(status.validation_message)}<br/>`
+        : "";
+    const safeKey = status.api_key_masked
+      ? `Key: <code>${this.escHtml(status.api_key_masked)}</code><br/>`
+      : "";
+    const safeErr = status.last_error
+      ? `<div class="qwen-error">Last error: ${this.escHtml(status.last_error)}</div>`
       : "";
     this.qwenStatusEl.innerHTML = `
-      <strong>${status.status_message}</strong><br/>
-      ${status.api_key_masked ? `Key: <code>${status.api_key_masked}</code><br/>` : ""}
-      ${errLine}
-      Calls: ${u.total_calls} · Tokens: ${u.total_tokens}<br/>
-      In: ${u.total_input_tokens} · Out: ${u.total_output_tokens}
+      <strong>${safeMsg}</strong><br/>
+      Provider: <code>${safeProvider}</code><br/>
+      ${endpointLine}
+      ${safeValidation}
+      ${safeKey}
+      ${modelLine}
+      ${safeErr}
+      Calls: ${u.total_calls} | Tokens: ${u.total_tokens}<br/>
+      In: ${u.total_input_tokens} | Out: ${u.total_output_tokens}
     `;
+
+    if (isOpenRouter) {
+      return;
+    }
 
     if (!this.qwenModelsEl.dataset.built) {
       const labels = status.role_labels ?? {};

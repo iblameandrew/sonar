@@ -14,7 +14,7 @@ from app.attention_policy import (
     DEFAULT_POLICY,
 )
 from app.graph.simulation_graph import engine
-from app.llm.qwen_factory import qwen_factory
+from app.llm.qwen_factory import _safe_text, qwen_factory
 from app.grid import WORLD_SIZE, total_walkable_cells
 from app.models.events import SimEvent
 from app.seed import create_colony_agents, create_project_canvas
@@ -49,6 +49,13 @@ class QwenConfigRequest(BaseModel):
 
 class QwenApiKeyRequest(BaseModel):
     api_key: str = Field(min_length=8)
+    backend: str | None = None
+    model_slug: str | None = None
+
+
+class GenAIConfigureRequest(BaseModel):
+    backend: str | None = None
+    model_slug: str | None = None
 
 
 @router.get("/attention/catalogue")
@@ -70,7 +77,15 @@ async def attention_policy_normalize(body: dict[str, Any]) -> dict[str, Any]:
 
 @router.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "system": "Colony", "project": "Colony", "llm": "Qwen Cloud"}
+    backend = qwen_factory.get_backend()
+    llm = "OpenRouter" if backend == "openrouter" else "Qwen Cloud"
+    return {
+        "status": "ok",
+        "system": "Colony",
+        "project": "Colony",
+        "llm": llm,
+        "api_version": "genai-v2",
+    }
 
 
 @router.get("/qwen/status")
@@ -83,14 +98,25 @@ async def qwen_usage() -> dict[str, Any]:
     return qwen_factory.get_usage_summary()
 
 
+@router.post("/genai/configure")
+@router.post("/qwen/setup")
+async def genai_configure(req: GenAIConfigureRequest) -> dict[str, Any]:
+    qwen_factory.configure(backend=req.backend, model_slug=req.model_slug)
+    return qwen_factory.get_status()
+
+
 @router.post("/qwen/api-key")
 async def qwen_set_api_key(req: QwenApiKeyRequest) -> dict[str, Any]:
-    qwen_factory.set_api_key(req.api_key)
-    valid, message = await asyncio.to_thread(qwen_factory.validate_api_key)
+    valid, message = await asyncio.to_thread(
+        qwen_factory.connect_api_key,
+        req.api_key,
+        backend=req.backend,
+        model_slug=req.model_slug,
+    )
     return {
         **qwen_factory.get_status(),
         "key_valid": valid,
-        "validation_message": message,
+        "validation_message": _safe_text(message),
     }
 
 
