@@ -29,6 +29,17 @@ class SimulationRunner:
         self.thread_id = str(uuid.uuid4())
         self._lock = asyncio.Lock()
         self.execution_mode: str = "society"
+        self.live_phase: str = "idle"
+        self.live_attention: dict[str, int] = {"done": 0, "total": 0, "matched": 0}
+
+    def reset_live_progress(self) -> None:
+        self.live_phase = "idle"
+        self.live_attention = {"done": 0, "total": 0, "matched": 0}
+
+    def record_live_phase(self, tick: int, phase: str, **attention: int) -> None:
+        self.live_phase = phase
+        if attention:
+            self.live_attention.update(attention)
 
     def _initial_state(
         self,
@@ -81,6 +92,7 @@ class SimulationRunner:
         async with self._lock:
             engine.playbook_store.playbook = SocialPlaybook()
             engine.custodian.weights = {}
+            self.reset_live_progress()
             self.execution_mode = mode
             self.thread_id = str(uuid.uuid4())
             self.state = self._initial_state(
@@ -232,6 +244,7 @@ class SimulationRunner:
             thread_id = self.thread_id
             tick = state["tick"]
 
+        self.record_live_phase(tick, "STARTING")
         await self.event_queue.put(
             SimEvent(
                 type="tick_started",
@@ -245,15 +258,21 @@ class SimulationRunner:
         )
 
         config = {"configurable": {"thread_id": thread_id}}
-        result = await self.graph.ainvoke(state, config)
+        result = dict(state)
+        async for chunk in self.graph.astream(state, config, stream_mode="updates"):
+            for _node, update in chunk.items():
+                node_events = update.get("events") or []
+                for event in node_events:
+                    await self.event_queue.put(event)
+                patch = {k: v for k, v in update.items() if k != "events"}
+                if patch:
+                    result.update(patch)  # type: ignore[typeddict-item]
 
         async with self._lock:
             if self.state is not state:
                 return state  # type: ignore[return-value]
-            events = result.get("events", [])
-            for event in events:
-                await self.event_queue.put(event)
             self.state = result  # type: ignore[assignment]
+            self.record_live_phase(result["tick"], "TICK_DONE")
             return self.state
 
     async def event_stream(self) -> AsyncGenerator[str, None]:
@@ -299,6 +318,8 @@ class SimulationRunner:
             "colony": self._colony_stats(s["agents"]),
             "attention_policy": s.get("attention_policy"),
             "attention_policy_preview": preview_entries(s.get("attention_policy")),
+            "live_phase": self.live_phase,
+            "live_attention": dict(self.live_attention),
         }
 
     def _colony_stats(self, agents: list) -> dict[str, Any]:

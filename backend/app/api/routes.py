@@ -123,6 +123,8 @@ async def get_state() -> dict[str, Any]:
             "institutions": [],
             "metrics": {},
             "running": False,
+            "live_phase": "idle",
+            "live_attention": {"done": 0, "total": 0, "matched": 0},
         }
     return snapshot
 

@@ -52,6 +52,7 @@ engine = SimulationEngine()
 async def _emit_phase(tick: int, phase: str) -> None:
     from app.simulation.runner import runner
 
+    runner.record_live_phase(tick, phase)
     await runner.event_queue.put(
         SimEvent(type="tick_phase", tick=tick, payload={"phase": phase})
     )
@@ -89,6 +90,7 @@ async def attend_node(state: SimulationState) -> dict[str, Any]:
     )
 
     async def on_attention_progress(done: int, total: int, matched: int) -> None:
+        runner.record_live_phase(tick, "ATTEND", done=done, total=total, matched=matched)
         await runner.event_queue.put(
             SimEvent(
                 type="attention_progress",

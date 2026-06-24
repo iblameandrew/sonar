@@ -92,7 +92,22 @@ type LiveState = {
   canvas?: ProjectCanvas;
   colony?: ColonyInfo;
   playbook?: unknown[];
+  live_phase?: string;
+  live_attention?: { done?: number; total?: number; matched?: number };
 };
+
+function formatLivePhase(s: LiveState, playbookLen?: number): string {
+  const phase = s.live_phase ?? livePhase;
+  const att = s.live_attention;
+  if (phase === "ATTEND" && att?.total) {
+    const edges = playbookLen !== undefined ? ` · ${playbookLen} edges` : "";
+    return `ATTEND ${att.done ?? 0}/${att.total}${edges}`;
+  }
+  if (playbookLen !== undefined && phase !== "idle" && phase !== "TICK_DONE") {
+    return `${phase} · ${playbookLen} edges`;
+  }
+  return phase;
+}
 
 function stopStatePolling(): void {
   if (pollTimer !== null) {
@@ -133,9 +148,11 @@ async function applyStateSnapshot(s: LiveState, opts?: { finalize?: boolean }): 
     return;
   }
 
-  syncLiveHud(playbookLen, livePhase);
+  const phaseText = formatLivePhase(s, playbookLen);
+  livePhase = phaseText;
+  syncLiveHud(playbookLen, phaseText);
   if (goal) {
-    activeGoalEl.textContent = `Tick ${liveTick}/${liveMaxTicks} · ${livePhase} · ${goal.slice(0, 56)}`;
+    activeGoalEl.textContent = `Tick ${liveTick}/${liveMaxTicks} · ${phaseText} · ${goal.slice(0, 56)}`;
   }
 }
 
@@ -167,7 +184,7 @@ function startStatePolling(): void {
   stopStatePolling();
   pollSnapshot.running = true;
   void pollSimulationState();
-  pollTimer = window.setInterval(() => void pollSimulationState(), 2000);
+  pollTimer = window.setInterval(() => void pollSimulationState(), 1000);
 }
 
 function applyLiveEvent(event: SimEvent): void {
