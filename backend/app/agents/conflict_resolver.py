@@ -3,8 +3,9 @@ from __future__ import annotations
 import uuid
 
 from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from app.llm.negotiation_outcome import normalize_negotiation_outcome
 from app.roles import INTERVENTION_AGENT
 from app.llm.qwen_factory import qwen_factory
 from app.models.agent import QualitativeAgent
@@ -16,9 +17,11 @@ class ConflictResolution(BaseModel):
     topic: str
     proposal: str
     counter_offer: str
-    outcome: str
-    rationale: str
-    decision: str
+    outcome: str = Field(
+        description="Exactly one of: accepted, compromise, rejected, voting. Not a sentence."
+    )
+    rationale: str = Field(description="Why this outcome was chosen.")
+    decision: str = Field(description="Final resolved plan as one or two sentences.")
 
 
 CONFLICT_PROMPT = ChatPromptTemplate.from_messages(
@@ -27,7 +30,9 @@ CONFLICT_PROMPT = ChatPromptTemplate.from_messages(
             "human",
             "Regret: {regret}\nNarrative: {narrative}\n"
             "Disputants: {agents}\nRecent negotiations: {negotiations}\n"
-            "Mediate conflict. Propose compromise or voting outcome for Colony architecture.",
+            "Mediate conflict for Colony architecture. Return JSON with proposal, "
+            "counter_offer, outcome (ONLY: accepted|compromise|rejected|voting), "
+            "rationale, and decision (the resolved plan text — do not put the plan in outcome).",
         ),
     ]
 )
@@ -69,8 +74,13 @@ class ConflictResolver:
         )
 
         if result:
-            topic, rationale, decision = result.topic, result.rationale, result.decision
-            proposal, counter, outcome = result.proposal, result.counter_offer, result.outcome
+            topic = result.topic
+            proposal, counter = result.proposal, result.counter_offer
+            decision = result.decision or result.rationale
+            outcome, rationale = normalize_negotiation_outcome(
+                result.outcome,
+                _merge_decision_rationale(result.rationale, decision),
+            )
         else:
             topic = "Architecture disagreement"
             proposal = f"{a.name}: modular LangGraph"
@@ -83,7 +93,7 @@ class ConflictResolver:
             tick=tick, topic=topic,
             proposer_id=a.id, responder_id=b.id,
             proposal=proposal, counter_offer=counter,
-            outcome=outcome,  # type: ignore[arg-type]
+            outcome=outcome,
             rationale=rationale,
         )
         canvas.negotiations.append(rnd)
@@ -107,3 +117,15 @@ class ConflictResolver:
             )
         )
         return canvas, agents, events, True
+
+
+def _merge_decision_rationale(rationale: str, decision: str) -> str:
+    rationale = (rationale or "").strip()
+    decision = (decision or "").strip()
+    if not decision:
+        return rationale
+    if not rationale:
+        return decision
+    if decision.lower() in rationale.lower():
+        return rationale
+    return f"{rationale} | {decision}"

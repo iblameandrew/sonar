@@ -3,8 +3,9 @@ from __future__ import annotations
 import uuid
 
 from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from app.llm.negotiation_outcome import normalize_negotiation_outcome
 from app.roles import MULTI_HEAD_AGENT
 from app.llm.qwen_factory import qwen_factory
 from app.models.agent import DependencyEntry, QualitativeAgent
@@ -16,8 +17,12 @@ class NegotiationResult(BaseModel):
     topic: str
     proposal: str
     counter_offer: str
-    outcome: str
-    rationale: str
+    outcome: str = Field(
+        description="Exactly one of: accepted, compromise, rejected, voting. Not a sentence."
+    )
+    rationale: str = Field(
+        description="Full explanation of the agreement or dispute resolution."
+    )
 
 
 NEGOTIATE_PROMPT = ChatPromptTemplate.from_messages(
@@ -27,7 +32,9 @@ NEGOTIATE_PROMPT = ChatPromptTemplate.from_messages(
             "Agent A ({a_name}): verbs={a_verbs}, nouns={a_nouns}\n"
             "Agent B ({b_name}): verbs={b_verbs}, nouns={b_nouns}\n"
             "Task context: {topic}\n"
-            "Run one negotiation round: proposal, counter_offer, outcome, rationale.",
+            "Run one negotiation round. Return JSON with proposal, counter_offer, "
+            "outcome (ONLY: accepted|compromise|rejected|voting), and rationale "
+            "(put the human-readable agreement text here, not in outcome).",
         ),
     ]
 )
@@ -63,8 +70,9 @@ class Negotiator:
             )
 
             if result:
-                proposal, counter, outcome, rationale = (
-                    result.proposal, result.counter_offer, result.outcome, result.rationale
+                proposal, counter = result.proposal, result.counter_offer
+                outcome, rationale = normalize_negotiation_outcome(
+                    result.outcome, result.rationale
                 )
             else:
                 proposal = f"{a.name} proposes {a.verbs[0]}-first using {a.nouns[0]}"
@@ -76,7 +84,7 @@ class Negotiator:
                 id=neg_id, tick=tick, topic=topic,
                 proposer_id=a.id, responder_id=b.id,
                 proposal=proposal, counter_offer=counter,
-                outcome=outcome,  # type: ignore[arg-type]
+                outcome=outcome,
                 rationale=rationale,
             )
             canvas.negotiations.append(rnd)

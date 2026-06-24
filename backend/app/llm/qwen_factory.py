@@ -35,6 +35,7 @@ from app.roles import (
     VOXEL_ARCHITECT,
     WEIGHT_AGENT,
 )
+from app.llm.mechanism_prompts import MECHANISM_SYSTEM_PROMPTS
 from app.llm.models import (
     DEFAULT_MODEL as CATALOG_DEFAULT,
     QWEN3_6_FLASH,
@@ -360,43 +361,46 @@ class QwenLLMFactory:
             return ""
         return f"{key[:4]}...{key[-4:]}"
 
+    def _mech_prompt(self, role: str, fallback: str = "") -> str:
+        return MECHANISM_SYSTEM_PROMPTS.get(role, fallback)
+
     def _default_configs(self) -> dict[str, RoleConfig]:
         return {
             LOSS_AGENT: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.3, max_tokens=1024,
-                system_prompt="You are the Loss Agent — cost function / regret measurement.",
+                system_prompt=self._mech_prompt(LOSS_AGENT),
             ),
             ATTENTION_AGENT: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.7, max_tokens=512,
-                system_prompt="You are the Attention Agent — core attention / relational relevance.",
+                system_prompt=self._mech_prompt(ATTENTION_AGENT),
             ),
             GRADIENT_DESCENT_AGENT: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.5, max_tokens=1024,
-                system_prompt="You are the Gradient Descent Agent — parameter update after misalignment.",
+                system_prompt=self._mech_prompt(GRADIENT_DESCENT_AGENT),
             ),
             RESIDUAL_FLOW_AGENT: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.4, max_tokens=512,
-                system_prompt="You are the Residual Flow Agent — backward propagation of lessons.",
+                system_prompt=self._mech_prompt(RESIDUAL_FLOW_AGENT),
             ),
             FEED_FORWARD_AGENT: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.6, max_tokens=1024,
-                system_prompt="You are the Feed-Forward Agent — activation and artifact distribution.",
+                system_prompt=self._mech_prompt(FEED_FORWARD_AGENT),
             ),
             WEIGHT_AGENT: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.2, max_tokens=512,
-                system_prompt="You are the Weight Agent — persistent learned parameters and memory.",
+                system_prompt=self._mech_prompt(WEIGHT_AGENT),
             ),
             INPUT_PROJECTION_AGENT: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.5, max_tokens=1024,
-                system_prompt="You are the Input Projection Agent — task routing and decomposition.",
+                system_prompt=self._mech_prompt(INPUT_PROJECTION_AGENT),
             ),
             MULTI_HEAD_AGENT: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.7, max_tokens=1024,
-                system_prompt="You are the Multi-Head Agent — multi-head contention negotiation.",
+                system_prompt=self._mech_prompt(MULTI_HEAD_AGENT),
             ),
             INTERVENTION_AGENT: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.4, max_tokens=1024,
-                system_prompt="You are the Intervention Agent — high-loss conflict resolution.",
+                system_prompt=self._mech_prompt(INTERVENTION_AGENT),
             ),
             VOXEL_ARCHITECT: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.5, max_tokens=2048,
@@ -422,8 +426,14 @@ class QwenLLMFactory:
                 model=QWEN3_6_FLASH, temperature=0.2, max_tokens=1024,
                 system_prompt="You are the Critic Evaluator Agent — society vs baseline metrics.",
             ),
-            LOW_RANK_AGENT: RoleConfig(model=QWEN3_6_FLASH, temperature=0.6, max_tokens=512),
-            HIERARCHICAL_MEMORY_AGENT: RoleConfig(model=QWEN3_6_FLASH, temperature=0.5, max_tokens=1024),
+            LOW_RANK_AGENT: RoleConfig(
+                model=QWEN3_6_FLASH, temperature=0.6, max_tokens=512,
+                system_prompt=self._mech_prompt(LOW_RANK_AGENT),
+            ),
+            HIERARCHICAL_MEMORY_AGENT: RoleConfig(
+                model=QWEN3_6_FLASH, temperature=0.5, max_tokens=1024,
+                system_prompt=self._mech_prompt(HIERARCHICAL_MEMORY_AGENT),
+            ),
             BASELINE_AGENT: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.7, max_tokens=2048,
                 system_prompt="You are the Baseline Agent — single-agent comparison mode.",
