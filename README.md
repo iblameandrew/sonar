@@ -30,6 +30,21 @@ The society is not a chatroom. It is a **closed learning loop** where agents per
 | **Run Baseline** | Single-agent control run for apples-to-apples efficiency comparison |
 | **Colony Dashboard** | Minimap, sector stats, agent registry, and movement log |
 
+### Successor to [open-deepthink](https://github.com/iblameandrew/open-deepthink)
+
+Colony continues the qualitative-neural-network line from [open-deepthink](https://github.com/iblameandrew/open-deepthink), which mapped agents onto a **layered feed-forward MLP**: parallel layer execution, Mirror Descent on personas, and epoch reframing — without an attention mechanism.
+
+Colony upgrades that design to a **full transformer block**. The society loop implements attention-weighted dependency matching, feed-forward activation routing, residual backward flow, loss/regret, and gradient-style parameter updates — each as a named agent with a social role on the shared grid.
+
+| | open-deepthink | Colony |
+|---|----------------|--------|
+| **Core analogue** | Stacked MLP layers | Transformer block |
+| **Relational scoring** | Layer-to-layer context | **Attention Agent** (pairwise weights) |
+| **Forward pass** | Layered parallel forward | Feed-Forward + Input Projection + Multi-Head agents |
+| **Backward pass** | Mirror Descent on prompts | Loss + Residual Flow + Gradient Descent agents |
+| **Persistent state** | Evolved personas / topology archive | Weight Agent + Social Playbook dependency graph |
+| **View** | QNN topology UI | Conway grid + isometric colony |
+
 ---
 
 ## The Conceptual Transformer
