@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from langgraph.checkpoint.memory import MemorySaver
@@ -51,8 +52,9 @@ engine = SimulationEngine()
 async def perform_node(state: SimulationState) -> dict[str, Any]:
     tick = state["tick"]
     phase = state.get("design_phase", "concept")
-    agents, canvas, events = engine.messenger.perform(
-        state["agents"], state["institutions"], state["canvas"], tick, phase
+    agents, canvas, events = await asyncio.to_thread(
+        engine.messenger.perform,
+        state["agents"], state["institutions"], state["canvas"], tick, phase,
     )
     return {"agents": agents, "canvas": canvas, "events": events}
 
@@ -60,8 +62,9 @@ async def perform_node(state: SimulationState) -> dict[str, Any]:
 async def decompose_node(state: SimulationState) -> dict[str, Any]:
     tick = state["tick"]
     phase = state.get("design_phase", "concept")
-    canvas, agents, events = engine.decomposer.decompose(
-        state["canvas"], state["agents"], tick, phase
+    canvas, agents, events = await asyncio.to_thread(
+        engine.decomposer.decompose,
+        state["canvas"], state["agents"], tick, phase,
     )
     return {"canvas": canvas, "agents": agents, "events": events}
 
@@ -120,7 +123,8 @@ async def negotiate_node(state: SimulationState) -> dict[str, Any]:
 
 async def audit_node(state: SimulationState) -> dict[str, Any]:
     tick = state["tick"]
-    regret, narrative, event = engine.auditor.audit(
+    regret, narrative, event = await asyncio.to_thread(
+        engine.auditor.audit,
         state["agents"],
         state["canvas"],
         state["ought_snapshot"],
@@ -154,7 +158,8 @@ async def audit_node(state: SimulationState) -> dict[str, Any]:
 
 async def conflict_node(state: SimulationState) -> dict[str, Any]:
     tick = state["tick"]
-    canvas, agents, events, resolved = engine.conflict.resolve(
+    canvas, agents, events, resolved = await asyncio.to_thread(
+        engine.conflict.resolve,
         state["canvas"],
         state["agents"],
         state["regret"],
@@ -177,7 +182,8 @@ async def conflict_node(state: SimulationState) -> dict[str, Any]:
 
 async def reform_node(state: SimulationState) -> dict[str, Any]:
     tick = state["tick"]
-    agents, events = engine.reformer.reform(
+    agents, events = await asyncio.to_thread(
+        engine.reformer.reform,
         state["agents"],
         state["regret"],
         state["regret_narrative"],
@@ -187,27 +193,17 @@ async def reform_node(state: SimulationState) -> dict[str, Any]:
     return {"agents": agents, "events": events}
 
 
-async def confess_node(state: SimulationState) -> dict[str, Any]:
-    tick = state["tick"]
+def _confess_sync(state: SimulationState, tick: int) -> dict[str, Any]:
     agents, events = engine.confessor.confess(
-        state["agents"],
-        state["playbook"],
-        engine.custodian,
-        tick,
+        state["agents"], state["playbook"], engine.custodian, tick,
     )
-
     institutions, inst_events = engine.institutions.condense(
-        state["playbook"],
-        state["institutions"],
-        state["macro_season"],
-        tick,
+        state["playbook"], state["institutions"], state["macro_season"], tick,
     )
     agents = engine.institutions.assign_members(agents, institutions)
-
     agents, pool, life_events = engine.lifecycle.apply(
-        agents, state["playbook"], state["quality_pool"], tick
+        agents, state["playbook"], state["quality_pool"], tick,
     )
-
     raptor_nodes, raptor_events = engine.raptor.maybe_summarize(
         state["raptor_nodes"],
         state["playbook"],
@@ -215,6 +211,29 @@ async def confess_node(state: SimulationState) -> dict[str, Any]:
         state["micro_season"],
         tick,
     )
+    return {
+        "agents": agents,
+        "institutions": institutions,
+        "quality_pool": pool,
+        "raptor_nodes": raptor_nodes,
+        "events": events,
+        "inst_events": inst_events,
+        "life_events": life_events,
+        "raptor_events": raptor_events,
+    }
+
+
+async def confess_node(state: SimulationState) -> dict[str, Any]:
+    tick = state["tick"]
+    bundle = await asyncio.to_thread(_confess_sync, state, tick)
+    agents = bundle["agents"]
+    events = bundle["events"]
+    inst_events = bundle["inst_events"]
+    life_events = bundle["life_events"]
+    raptor_events = bundle["raptor_events"]
+    institutions = bundle["institutions"]
+    pool = bundle["quality_pool"]
+    raptor_nodes = bundle["raptor_nodes"]
 
     metrics = state["metrics"]
     metrics.compute_summary()

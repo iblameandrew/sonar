@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -104,16 +105,25 @@ async def stream_events() -> EventSourceResponse:
 @router.post("/sim/society")
 async def run_society(req: StartRequest) -> dict[str, Any]:
     prompt = req.prompt.strip() or None
-    state = await runner.start(
-        req.max_ticks, req.speed, mode="society", agent_count=req.agent_count, user_prompt=prompt
-    )
+    canvas = create_project_canvas(prompt)
+
+    async def _launch() -> None:
+        await runner.start(
+            req.max_ticks,
+            req.speed,
+            mode="society",
+            agent_count=req.agent_count,
+            user_prompt=prompt,
+        )
+
+    asyncio.create_task(_launch())
     return {
         "status": "society_started",
-        "tick": state["tick"],
-        "agents": len(state["agents"]),
-        "subtasks": len(state["canvas"].subtasks),
+        "tick": 0,
+        "agents": req.agent_count,
+        "subtasks": len(canvas.subtasks),
         "agent_count": req.agent_count,
-        "goal": state["canvas"].goal,
+        "goal": canvas.goal,
     }
 
 
