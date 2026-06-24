@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>THE ATTENTION AGENT</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="canvas"></canvas>
+      <div id="inspect-panel" class="hidden"></div>
+      <canvas id="minimap" class="hidden"></canvas>
+      <div id="status-bar">
+        <span id="tick-label">Tick: 0</span>
+        <span id="season-label">Season: —</span>
+        <span id="regret-label">Regret: —</span>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
