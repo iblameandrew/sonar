@@ -35,7 +35,7 @@ from app.roles import (
     VOXEL_ARCHITECT,
     WEIGHT_AGENT,
 )
-from app.llm.mechanism_prompts import MECHANISM_SYSTEM_PROMPTS
+from app.llm.mechanism_prompts import role_system_prompt
 from app.llm.models import (
     DEFAULT_MODEL as CATALOG_DEFAULT,
     QWEN3_6_FLASH,
@@ -362,7 +362,7 @@ class QwenLLMFactory:
         return f"{key[:4]}...{key[-4:]}"
 
     def _mech_prompt(self, role: str, fallback: str = "") -> str:
-        return MECHANISM_SYSTEM_PROMPTS.get(role, fallback)
+        return role_system_prompt(role) or fallback
 
     def _default_configs(self) -> dict[str, RoleConfig]:
         return {
@@ -404,27 +404,27 @@ class QwenLLMFactory:
             ),
             VOXEL_ARCHITECT: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.5, max_tokens=2048,
-                system_prompt="You are the Voxel Architect Agent — Three.js pixel-art visualization.",
+                system_prompt=self._mech_prompt(VOXEL_ARCHITECT),
             ),
             ORCHESTRATOR: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.5, max_tokens=2048,
-                system_prompt="You are the Orchestrator Agent — LangGraph and SSE pipelines.",
+                system_prompt=self._mech_prompt(ORCHESTRATOR),
             ),
             OPTIMIZER: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.3, max_tokens=1024,
-                system_prompt="You are the Optimizer Agent — benchmarking and efficiency.",
+                system_prompt=self._mech_prompt(OPTIMIZER),
             ),
             INTEGRATOR: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.5, max_tokens=2048,
-                system_prompt="You are the Integrator Agent — FastAPI + frontend integration.",
+                system_prompt=self._mech_prompt(INTEGRATOR),
             ),
             UX_WEAVER: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.6, max_tokens=1024,
-                system_prompt="You are the UX Weaver Agent — dashboard and judge-friendly UI.",
+                system_prompt=self._mech_prompt(UX_WEAVER),
             ),
             CRITIC_EVALUATOR: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.2, max_tokens=1024,
-                system_prompt="You are the Critic Evaluator Agent — society vs baseline metrics.",
+                system_prompt=self._mech_prompt(CRITIC_EVALUATOR),
             ),
             LOW_RANK_AGENT: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.6, max_tokens=512,
@@ -436,7 +436,7 @@ class QwenLLMFactory:
             ),
             BASELINE_AGENT: RoleConfig(
                 model=QWEN3_6_FLASH, temperature=0.7, max_tokens=2048,
-                system_prompt="You are the Baseline Agent — single-agent comparison mode.",
+                system_prompt=self._mech_prompt(BASELINE_AGENT),
             ),
             "default": RoleConfig(model=DEFAULT_MODEL, temperature=0.7, max_tokens=2048),
         }

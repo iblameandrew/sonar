@@ -59,13 +59,28 @@ class QualitativeAgent(BaseModel):
 
 
 def format_system_prompt(agent: QualitativeAgent, purpose: str = "") -> str:
-    """Persona block used as the agent's system prompt (verbs · nouns · adjectives · purpose)."""
-    lines = [
-        f"You are {agent.name} ({agent.role}).",
-        f"Verbs: {', '.join(agent.verbs) or 'observe'}",
-        f"Nouns: {', '.join(agent.nouns) or 'task'}",
-        f"Adjectives: {', '.join(agent.adjectives) or 'neutral'}",
-    ]
+    """Persona block used as the agent's system prompt and hover tooltip text."""
+    from app.llm.mechanism_prompts import role_system_prompt
+
+    role_prompt = role_system_prompt(agent.role)
+    if role_prompt:
+        lines = [role_prompt]
+        if agent.name and agent.name not in role_prompt:
+            lines.append(f"Grid identity: {agent.name}")
+        traits = (
+            f"Traits: verbs={', '.join(agent.verbs) or 'observe'}; "
+            f"nouns={', '.join(agent.nouns) or 'task'}; "
+            f"adjectives={', '.join(agent.adjectives) or 'neutral'}"
+        )
+        if agent.verbs or agent.nouns or agent.adjectives:
+            lines.append(traits)
+    else:
+        lines = [
+            f"You are {agent.name} ({agent.role}).",
+            f"Verbs: {', '.join(agent.verbs) or 'observe'}",
+            f"Nouns: {', '.join(agent.nouns) or 'task'}",
+            f"Adjectives: {', '.join(agent.adjectives) or 'neutral'}",
+        ]
     if purpose:
         lines.append(f"Purpose: {purpose}")
     if agent.current_task_id:
