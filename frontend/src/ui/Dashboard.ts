@@ -17,6 +17,7 @@ export interface QwenModelEntry {
 }
 
 const FALLBACK_MODELS: QwenModelEntry[] = [
+  { id: "qwen3.6-flash-2026-04-02", label: "Qwen3.6 Flash", category: "fast", best_for: "Default for all roles" },
   { id: "qwen3.7-max-2026-06-08", label: "Qwen3.7 Max", category: "flagship", best_for: "Reasoning" },
   { id: "qwen3.7-plus-2026-06-08", label: "Qwen3.7 Plus", category: "balanced", best_for: "General use" },
   { id: "qwen3.6-plus-2026-04-02", label: "Qwen3.6 Plus", category: "balanced", best_for: "Balanced agents" },

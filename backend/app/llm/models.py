@@ -20,7 +20,7 @@ QWEN_PLUS = "qwen-plus"
 QWEN_TURBO = "qwen-turbo"
 QWEN_72B = "qwen2.5-72b-instruct"
 
-DEFAULT_MODEL = QWEN3_7_MAX
+DEFAULT_MODEL = QWEN3_6_FLASH
 
 
 @dataclass(frozen=True)

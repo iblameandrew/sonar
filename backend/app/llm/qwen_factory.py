@@ -36,10 +36,7 @@ from app.roles import (
 )
 from app.llm.models import (
     DEFAULT_MODEL as CATALOG_DEFAULT,
-    QWEN3_6_PLUS,
-    QWEN3_7_MAX,
-    QWEN3_7_PLUS,
-    QWEN_CODER,
+    QWEN3_6_FLASH,
     catalog_for_api,
 )
 
@@ -101,69 +98,69 @@ class QwenLLMFactory:
     def _default_configs(self) -> dict[str, RoleConfig]:
         return {
             LOSS_AGENT: RoleConfig(
-                model=QWEN3_7_MAX, temperature=0.3, max_tokens=1024,
+                model=QWEN3_6_FLASH, temperature=0.3, max_tokens=1024,
                 system_prompt="You are the Loss Agent — cost function / regret measurement.",
             ),
             ATTENTION_AGENT: RoleConfig(
-                model=QWEN3_7_MAX, temperature=0.7, max_tokens=512,
+                model=QWEN3_6_FLASH, temperature=0.7, max_tokens=512,
                 system_prompt="You are the Attention Agent — core attention / relational relevance.",
             ),
             GRADIENT_DESCENT_AGENT: RoleConfig(
-                model=QWEN3_7_MAX, temperature=0.5, max_tokens=1024,
+                model=QWEN3_6_FLASH, temperature=0.5, max_tokens=1024,
                 system_prompt="You are the Gradient Descent Agent — parameter update after misalignment.",
             ),
             RESIDUAL_FLOW_AGENT: RoleConfig(
-                model=QWEN3_6_PLUS, temperature=0.4, max_tokens=512,
+                model=QWEN3_6_FLASH, temperature=0.4, max_tokens=512,
                 system_prompt="You are the Residual Flow Agent — backward propagation of lessons.",
             ),
             FEED_FORWARD_AGENT: RoleConfig(
-                model=QWEN3_7_PLUS, temperature=0.6, max_tokens=1024,
+                model=QWEN3_6_FLASH, temperature=0.6, max_tokens=1024,
                 system_prompt="You are the Feed-Forward Agent — activation and artifact distribution.",
             ),
             WEIGHT_AGENT: RoleConfig(
-                model=QWEN3_6_PLUS, temperature=0.2, max_tokens=512,
+                model=QWEN3_6_FLASH, temperature=0.2, max_tokens=512,
                 system_prompt="You are the Weight Agent — persistent learned parameters and memory.",
             ),
             INPUT_PROJECTION_AGENT: RoleConfig(
-                model=QWEN3_7_PLUS, temperature=0.5, max_tokens=1024,
+                model=QWEN3_6_FLASH, temperature=0.5, max_tokens=1024,
                 system_prompt="You are the Input Projection Agent — task routing and decomposition.",
             ),
             MULTI_HEAD_AGENT: RoleConfig(
-                model=QWEN3_7_MAX, temperature=0.7, max_tokens=1024,
+                model=QWEN3_6_FLASH, temperature=0.7, max_tokens=1024,
                 system_prompt="You are the Multi-Head Agent — multi-head contention negotiation.",
             ),
             INTERVENTION_AGENT: RoleConfig(
-                model=QWEN3_7_MAX, temperature=0.4, max_tokens=1024,
+                model=QWEN3_6_FLASH, temperature=0.4, max_tokens=1024,
                 system_prompt="You are the Intervention Agent — high-loss conflict resolution.",
             ),
             VOXEL_ARCHITECT: RoleConfig(
-                model=QWEN_CODER, temperature=0.5, max_tokens=2048,
+                model=QWEN3_6_FLASH, temperature=0.5, max_tokens=2048,
                 system_prompt="You are the Voxel Architect Agent — Three.js pixel-art visualization.",
             ),
             ORCHESTRATOR: RoleConfig(
-                model=QWEN_CODER, temperature=0.5, max_tokens=2048,
+                model=QWEN3_6_FLASH, temperature=0.5, max_tokens=2048,
                 system_prompt="You are the Orchestrator Agent — LangGraph and SSE pipelines.",
             ),
             OPTIMIZER: RoleConfig(
-                model=QWEN3_7_MAX, temperature=0.3, max_tokens=1024,
+                model=QWEN3_6_FLASH, temperature=0.3, max_tokens=1024,
                 system_prompt="You are the Optimizer Agent — benchmarking and efficiency.",
             ),
             INTEGRATOR: RoleConfig(
-                model=QWEN_CODER, temperature=0.5, max_tokens=2048,
+                model=QWEN3_6_FLASH, temperature=0.5, max_tokens=2048,
                 system_prompt="You are the Integrator Agent — FastAPI + frontend integration.",
             ),
             UX_WEAVER: RoleConfig(
-                model=QWEN3_6_PLUS, temperature=0.6, max_tokens=1024,
+                model=QWEN3_6_FLASH, temperature=0.6, max_tokens=1024,
                 system_prompt="You are the UX Weaver Agent — dashboard and judge-friendly UI.",
             ),
             CRITIC_EVALUATOR: RoleConfig(
-                model=QWEN3_7_MAX, temperature=0.2, max_tokens=1024,
+                model=QWEN3_6_FLASH, temperature=0.2, max_tokens=1024,
                 system_prompt="You are the Critic Evaluator Agent — society vs baseline metrics.",
             ),
-            LOW_RANK_AGENT: RoleConfig(model=QWEN3_6_PLUS, temperature=0.6, max_tokens=512),
-            HIERARCHICAL_MEMORY_AGENT: RoleConfig(model=QWEN3_6_PLUS, temperature=0.5, max_tokens=1024),
+            LOW_RANK_AGENT: RoleConfig(model=QWEN3_6_FLASH, temperature=0.6, max_tokens=512),
+            HIERARCHICAL_MEMORY_AGENT: RoleConfig(model=QWEN3_6_FLASH, temperature=0.5, max_tokens=1024),
             BASELINE_AGENT: RoleConfig(
-                model=QWEN3_7_MAX, temperature=0.7, max_tokens=2048,
+                model=QWEN3_6_FLASH, temperature=0.7, max_tokens=2048,
                 system_prompt="You are the Baseline Agent — single-agent comparison mode.",
             ),
             "default": RoleConfig(model=DEFAULT_MODEL, temperature=0.7, max_tokens=2048),
