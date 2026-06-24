@@ -309,7 +309,8 @@ html, body, #app {
   min-width: 180px;
 }
 .btn:disabled,
-.btn.is-deploying {
+.btn.is-deploying,
+.btn.is-running {
   opacity: 0.55;
   cursor: not-allowed;
   pointer-events: none;

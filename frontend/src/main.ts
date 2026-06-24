@@ -21,7 +21,8 @@ let dashboard: Dashboard;
 let answerModal: AnswerModal;
 const sse = new SSEClient();
 let colonyRefreshTick = 0;
-let deploying = false;
+let deployInFlight = false;
+let colonyRunning = false;
 let pollTimer: number | null = null;
 let pollSnapshot = { tick: -1, playbookLen: 0, running: false };
 let liveTick = 0;
@@ -63,15 +64,24 @@ function setActiveGoal(goal: string): void {
   activeGoalEl.textContent = goal ? `Solving: ${goal}` : "";
 }
 
-function setDeployButtonsActive(active: boolean): void {
-  deploying = active;
+function syncDeployButtons(): void {
+  const blocked = deployInFlight || colonyRunning;
   for (const id of ["btn-solve", "btn-society"]) {
     const btn = document.getElementById(id) as HTMLButtonElement | null;
     if (!btn) continue;
-    btn.disabled = active;
-    btn.classList.toggle("is-deploying", active);
-    btn.setAttribute("aria-busy", active ? "true" : "false");
+    btn.disabled = blocked;
+    btn.classList.toggle("is-deploying", deployInFlight);
+    btn.classList.toggle("is-running", colonyRunning && !deployInFlight);
+    btn.setAttribute("aria-busy", deployInFlight ? "true" : "false");
+    btn.title = colonyRunning
+      ? "Colony simulation is running — wait for completion or refresh after it stops"
+      : "";
   }
+}
+
+function setColonyRunning(running: boolean): void {
+  colonyRunning = running;
+  syncDeployButtons();
 }
 
 function showBootError(err: unknown): void {
@@ -154,11 +164,12 @@ async function applyStateSnapshot(s: LiveState, opts?: { finalize?: boolean }): 
       ? `Complete · tick ${liveTick}/${liveMaxTicks} · ${goal.slice(0, 64)}`
       : `Complete · tick ${liveTick}/${liveMaxTicks}`;
     modeLabel.textContent = "Complete";
-    setDeployButtonsActive(false);
+    setColonyRunning(false);
     if (s.final_answer) showFinalAnswer(s.final_answer);
     return;
   }
 
+  setColonyRunning(true);
   if (s.live_phase) livePhaseRaw = s.live_phase;
   const phaseDetail = formatPhaseDetail(s);
   syncLiveHud(playbookLen, phaseDetail);
@@ -224,7 +235,9 @@ function applyLiveEvent(event: SimEvent): void {
     livePlaybookLen = 0;
     liveMaxTicks = Number(event.payload.max_ticks ?? 80);
     modeLabel.textContent = "Society";
-    setDeployButtonsActive(false);
+    setColonyRunning(true);
+    deployInFlight = false;
+    syncDeployButtons();
     dashboard.switchTab("activity");
     startStatePolling();
     syncLiveHud(0, "deployed");
@@ -270,7 +283,7 @@ function applyLiveEvent(event: SimEvent): void {
   if (event.type === "sim_error") {
     activeGoalEl.textContent = `Simulation error: ${String(event.payload.message ?? "unknown")}`;
     modeLabel.textContent = "Error";
-    setDeployButtonsActive(false);
+    setColonyRunning(false);
     stopStatePolling();
   }
 }
@@ -285,12 +298,13 @@ function wireSseHandlers(): void {
 }
 
 async function deployColony() {
-  if (deploying) return;
+  if (deployInFlight || colonyRunning) return;
 
   const prompt = getPrompt();
 
   try {
-    setDeployButtonsActive(true);
+    deployInFlight = true;
+    syncDeployButtons();
     modeLabel.textContent = "Starting…";
     activeGoalEl.textContent = prompt
       ? "Deploying colony…"
@@ -321,7 +335,6 @@ async function deployColony() {
     });
 
     startStatePolling();
-    setDeployButtonsActive(false);
 
     const s = await api<LiveState>("/state");
 
@@ -334,6 +347,7 @@ async function deployColony() {
     updateStatus(s);
     modeLabel.textContent = s.running ? "Society" : String(s.execution_mode ?? "Society");
     if (goal) setActiveGoal(goal);
+    setColonyRunning(Boolean(s.running));
     if (s.running) {
       liveMaxTicks = s.max_ticks ?? liveMaxTicks;
       liveTick = s.tick ?? liveTick;
@@ -350,7 +364,10 @@ async function deployColony() {
     activeGoalEl.textContent = `Deploy failed: ${msg}`;
     dashboard.logEvent({ type: "deploy_failed", tick: 0, payload: { message: msg } });
     dashboard.switchTab("activity");
-    setDeployButtonsActive(false);
+    setColonyRunning(false);
+  } finally {
+    deployInFlight = false;
+    syncDeployButtons();
   }
 }
 
@@ -448,6 +465,7 @@ async function init() {
     if (state.final_answer) {
       showFinalAnswer(state.final_answer, { autoOpen: false });
     }
+    setColonyRunning(Boolean(state.running));
     if (state.running) startStatePolling();
   } catch (err) {
     console.error("Initial state failed:", err);
