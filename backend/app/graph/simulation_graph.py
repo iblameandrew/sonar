@@ -81,6 +81,7 @@ async def attend_node(state: SimulationState) -> dict[str, Any]:
         season_weight,
         temperature,
         dominant_kind,
+        state.get("attention_policy"),
     )
 
     playbook = state["playbook"]

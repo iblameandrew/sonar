@@ -77,7 +77,9 @@ export class ColonyScene {
   private prevPositions = new Map<string, { x: number; y: number }>();
   private connectionLines: THREE.Line[] = [];
   private debateParticles: THREE.Points[] = [];
+  private institutionHulls: THREE.Mesh[] = [];
   private conflictRing: THREE.Mesh | null = null;
+  private seasonTint = 1;
   private agentPulseUntil = new Map<string, number>();
   private clock = new THREE.Clock();
   private panX = 0;
@@ -161,7 +163,7 @@ export class ColonyScene {
     this.sectorLines.position.set(WORLD_EXTENT / 2, 0.02, WORLD_EXTENT / 2);
     this.scene.add(this.sectorLines);
 
-    const agentGeo = new THREE.SphereGeometry(CELL * 0.42, 10, 10);
+    const agentGeo = new THREE.BoxGeometry(CELL * 0.62, CELL * 0.62, CELL * 0.62);
     const agentMat = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       emissive: 0xffffff,
@@ -255,7 +257,13 @@ export class ColonyScene {
         if (this.layers.birthDeath) this.removeAgent(p.agent_id as string);
         break;
       case "phase_change":
-        this.flashBackdrop(0x0a1420);
+        this.applyDesignPhase(String(p.design_phase ?? "concept"));
+        break;
+      case "season_change":
+        this.applySeason(String(p.macro_season ?? "sharp"), String(p.judgment_temperature ?? "sharp"));
+        break;
+      case "institution_formed":
+        if (this.layers.institutions) this.addInstitutionHull(p);
         break;
     }
   }
@@ -331,9 +339,11 @@ export class ColonyScene {
     if (!agent.current_task_id) this.colorHelper.multiplyScalar(0.7);
 
     const active = Boolean(agent.current_task_id);
-    const scale = agent.role === "worker" || agent.role === "generalist" ? 0.9 : 1.05;
-    this.dummy.position.set(agent.grid_x * CELL + CELL / 2, CELL * 0.38, agent.grid_y * CELL + CELL / 2);
-    this.dummy.scale.setScalar(active ? scale * 1.08 : scale);
+    const stack = 1 + Math.min(agent.nouns.length, 4) * 0.12;
+    const scale = (agent.role === "worker" || agent.role === "generalist" ? 0.88 : 1.05) * stack;
+    const y = CELL * (0.28 + stack * 0.18);
+    this.dummy.position.set(agent.grid_x * CELL + CELL / 2, y, agent.grid_y * CELL + CELL / 2);
+    this.dummy.scale.set(1, active ? scale * 1.1 : scale, 1);
     this.dummy.updateMatrix();
     this.agentMesh.setMatrixAt(idx, this.dummy.matrix);
     this.agentMesh.setColorAt(idx, this.colorHelper);
@@ -359,6 +369,7 @@ export class ColonyScene {
   applyLayers(): void {
     this.agentMesh.visible = this.layers.agents;
     this.connectionLines.forEach((l) => (l.visible = this.layers.connections));
+    this.institutionHulls.forEach((m) => (m.visible = this.layers.institutions));
     this.debateParticles.forEach((p) => (p.visible = this.layers.negotiations));
     if (this.conflictRing) this.conflictRing.visible = this.layers.conflictArena;
   }
@@ -374,15 +385,12 @@ export class ColonyScene {
       const pulsing = (this.agentPulseUntil.get(id) ?? 0) > t;
       const working = Boolean(agent.current_task_id) || pulsing;
       const bob = working ? Math.sin(t * 4 + idx * 0.3) * 0.06 : 0;
-      const scale =
-        (agent.role === "worker" || agent.role === "generalist" ? 0.9 : 1.05) *
-        (pulsing ? 1.25 : working ? 1.08 : 1);
-      this.dummy.position.set(
-        agent.grid_x * CELL + CELL / 2,
-        CELL * 0.38 + bob,
-        agent.grid_y * CELL + CELL / 2,
-      );
-      this.dummy.scale.setScalar(scale);
+      const stack = 1 + Math.min(agent.nouns.length, 4) * 0.12;
+      const base = (agent.role === "worker" || agent.role === "generalist" ? 0.88 : 1.05) * stack;
+      const scale = base * (pulsing ? 1.25 : working ? 1.1 : 1);
+      const y = CELL * (0.28 + stack * 0.18) + bob;
+      this.dummy.position.set(agent.grid_x * CELL + CELL / 2, y, agent.grid_y * CELL + CELL / 2);
+      this.dummy.scale.set(1, scale, 1);
       this.dummy.updateMatrix();
       this.agentMesh.setMatrixAt(idx, this.dummy.matrix);
     }
@@ -444,13 +452,21 @@ export class ColonyScene {
     if (!from || !to) return;
     if ((STRENGTH_SCALE[entry.strength] ?? 0) <= 0) return;
     const color = KIND_COLORS[entry.kind] ?? 0xffffff;
+    const thick = 0.6 + (STRENGTH_SCALE[entry.strength] ?? 0.2) * 1.4;
+    const y = 0.85 + (STRENGTH_SCALE[entry.strength] ?? 0.15);
     const line = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(from.grid_x * CELL + CELL / 2, 0.8, from.grid_y * CELL + CELL / 2),
-        new THREE.Vector3(to.grid_x * CELL + CELL / 2, 0.8, to.grid_y * CELL + CELL / 2),
+        new THREE.Vector3(from.grid_x * CELL + CELL / 2, y, from.grid_y * CELL + CELL / 2),
+        new THREE.Vector3(to.grid_x * CELL + CELL / 2, y, to.grid_y * CELL + CELL / 2),
       ]),
-      new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.6 }),
+      new THREE.LineBasicMaterial({
+        color,
+        transparent: true,
+        opacity: thick,
+        linewidth: 1,
+      }),
     );
+    line.scale.set(1, thick, 1);
     this.scene.add(line);
     this.connectionLines.push(line);
     if (this.connectionLines.length > 200) {
@@ -512,6 +528,59 @@ export class ColonyScene {
     setTimeout(() => {
       if (this.conflictRing) this.conflictRing.visible = this.layers.conflictArena;
     }, 1200);
+  }
+
+  private addInstitutionHull(payload: Record<string, unknown>): void {
+    const memberIds = (payload.member_ids as string[]) ?? [];
+    const members = memberIds.map((id) => this.agents.get(id)).filter(Boolean) as Agent[];
+    if (!members.length) return;
+    let cx = 0;
+    let cz = 0;
+    for (const m of members) {
+      cx += m.grid_x;
+      cz += m.grid_y;
+    }
+    cx = (cx / members.length) * CELL + CELL / 2;
+    cz = (cz / members.length) * CELL + CELL / 2;
+    const radius = Math.max(2.5, Math.sqrt(members.length) * 1.4);
+    const hull = new THREE.Mesh(
+      new THREE.BoxGeometry(radius * 2, CELL * 0.35, radius * 2),
+      new THREE.MeshStandardMaterial({
+        color: 0xc5e1a5,
+        emissive: 0x558b2f,
+        emissiveIntensity: 0.35,
+        transparent: true,
+        opacity: 0.45,
+      }),
+    );
+    hull.position.set(cx, CELL * 0.12, cz);
+    this.scene.add(hull);
+    this.institutionHulls.push(hull);
+    if (this.institutionHulls.length > 24) {
+      const old = this.institutionHulls.shift()!;
+      this.scene.remove(old);
+      old.geometry.dispose();
+      (old.material as THREE.Material).dispose();
+    }
+  }
+
+  private applySeason(macro: string, temperature: string): void {
+    this.seasonTint = macro === "sharp" ? 1 : 0.82;
+    const sky = macro === "sharp" ? ECO.sky : 0xa8c8e8;
+    const fog = macro === "sharp" ? ECO.skyFog : 0xc8d8e8;
+    this.renderer.setClearColor(sky);
+    if (this.scene.fog) (this.scene.fog as THREE.Fog).color.setHex(fog);
+    this.zoneMat.emissiveIntensity = temperature === "sharp" ? 0.14 : 0.08;
+  }
+
+  private applyDesignPhase(phase: string): void {
+    const tints: Record<string, number> = {
+      concept: 0x0a1420,
+      technical: 0x0a1a28,
+      polish: 0x1a1428,
+      validation: 0x142818,
+    };
+    this.flashBackdrop(tints[phase] ?? 0x0a1420);
   }
 
   private flashBackdrop(color: number): void {

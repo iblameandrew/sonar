@@ -1,6 +1,7 @@
 import { SSEClient } from "./sse/client";
 import { roleLabel } from "./agentRoles";
 import type { Dashboard } from "./ui/Dashboard";
+import type { PolicyPreview, AttentionPolicy } from "./attentionPolicy";
 import type { Agent, ColonyInfo, ComparisonMetrics, ProjectCanvas, SimEvent } from "./types";
 import type { QwenStatus } from "./ui/Dashboard";
 
@@ -88,6 +89,12 @@ function wireSseHandlers(): void {
     if (event.type === "task_decomposed" || event.type === "messenger_propose") {
       api<ProjectCanvas>("/canvas").then((c) => dashboard.updateTasks(c));
     }
+    if (event.type === "attention_policy_configured") {
+      dashboard.updateActiveAttentionPolicy(
+        event.payload.policy as never,
+        event.payload.preview as never,
+      );
+    }
     if (event.type === "simulation_started") {
       modeLabel.textContent = "Society";
       setDeployButtonsActive(false);
@@ -136,11 +143,13 @@ async function deployColony() {
     }
 
     const agentCount = dashboard.getAgentCount();
+    const attentionPolicy = dashboard.getAttentionPolicy();
     const started = await api<{ status?: string; goal?: string }>("/sim/society", "POST", {
       max_ticks: 80,
       speed: 1.5,
       agent_count: agentCount,
       prompt,
+      attention_policy: attentionPolicy,
     });
 
     dashboard.switchTab("activity");
@@ -213,8 +222,16 @@ async function hydrateFromState(state: {
   design_phase?: string;
   regret?: number;
   execution_mode?: string;
+  attention_policy?: AttentionPolicy;
+  attention_policy_preview?: PolicyPreview[];
 }): Promise<void> {
-  if (state.qwen) dashboard.updateQwen(state.qwen);
+    if (state.qwen) dashboard.updateQwen(state.qwen);
+    if (state.attention_policy) {
+      dashboard.updateActiveAttentionPolicy(
+        state.attention_policy as never,
+        state.attention_policy_preview as never,
+      );
+    }
   if (state.agents?.length) {
     scene?.loadAgents(state.agents);
     if (state.canvas?.colony_voxels) scene?.loadColonyVoxels(state.canvas.colony_voxels);

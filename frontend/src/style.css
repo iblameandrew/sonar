@@ -441,3 +441,39 @@ html, body, #app {
 .registry-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .registry-pos { color: var(--text-muted); font-family: monospace; }
 .registry-role { color: var(--grass-dark); font-size: 9px; text-transform: uppercase; }
+
+.launch-actions { display: flex; gap: 10px; margin: 12px 0 16px; flex-wrap: wrap; }
+
+.attention-heads { display: flex; flex-direction: column; gap: 12px; margin-bottom: 8px; }
+
+.head-card {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 2px solid #c5e1a5;
+  background: #f9fdf7;
+}
+.head-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.head-desc {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  font-family: inherit;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+.fn-grid { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+.fn-row {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+}
+.fn-label { font-weight: 600; color: var(--text-muted); }
+.fn-row input[type="range"] { width: 100%; }

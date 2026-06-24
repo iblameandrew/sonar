@@ -7,6 +7,12 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
+from app.attention_policy import (
+    catalogue_for_api,
+    normalize_policy,
+    preview_entries,
+    DEFAULT_POLICY,
+)
 from app.graph.simulation_graph import engine
 from app.llm.qwen_factory import qwen_factory
 from app.grid import WORLD_SIZE, total_walkable_cells
@@ -22,6 +28,7 @@ class StartRequest(BaseModel):
     speed: float = Field(default=1.0, ge=0.1, le=10.0)
     agent_count: int = Field(default=48, ge=6, le=512)
     prompt: str = Field(default="", max_length=4000)
+    attention_policy: dict[str, Any] | None = None
 
 
 class SeasonForceRequest(BaseModel):
@@ -42,6 +49,23 @@ class QwenConfigRequest(BaseModel):
 
 class QwenApiKeyRequest(BaseModel):
     api_key: str = Field(min_length=8)
+
+
+@router.get("/attention/catalogue")
+async def attention_catalogue() -> dict[str, Any]:
+    return {"functions": catalogue_for_api()}
+
+
+@router.get("/attention/policy/default")
+async def attention_policy_default() -> dict[str, Any]:
+    policy = DEFAULT_POLICY.model_dump()
+    return {"policy": policy, "preview": preview_entries(policy)}
+
+
+@router.post("/attention/policy/normalize")
+async def attention_policy_normalize(body: dict[str, Any]) -> dict[str, Any]:
+    policy = normalize_policy(body)
+    return {"policy": policy, "preview": preview_entries(policy)}
 
 
 @router.get("/health")
@@ -113,7 +137,19 @@ async def run_society(req: StartRequest) -> dict[str, Any]:
     prompt = req.prompt.strip() or None
     canvas = create_project_canvas(prompt)
 
+    policy = normalize_policy(req.attention_policy)
+
     async def _launch() -> None:
+        await runner.event_queue.put(
+            SimEvent(
+                type="attention_policy_configured",
+                tick=0,
+                payload={
+                    "policy": policy,
+                    "preview": preview_entries(policy),
+                },
+            )
+        )
         await runner.event_queue.put(
             SimEvent(
                 type="simulation_started",
@@ -127,6 +163,7 @@ async def run_society(req: StartRequest) -> dict[str, Any]:
             mode="society",
             agent_count=req.agent_count,
             user_prompt=prompt,
+            attention_policy=policy,
         )
 
     asyncio.create_task(_launch())
@@ -137,6 +174,7 @@ async def run_society(req: StartRequest) -> dict[str, Any]:
         "subtasks": len(canvas.subtasks),
         "agent_count": req.agent_count,
         "goal": canvas.goal,
+        "attention_policy": policy,
     }
 
 

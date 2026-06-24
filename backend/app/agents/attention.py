@@ -6,6 +6,7 @@ import random
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel
 
+from app.attention_policy import aggregate_function_weights, apply_policy_boost, pair_relevance
 from app.roles import ATTENTION_AGENT
 from app.llm.qwen_factory import qwen_factory
 from app.models.agent import DependencyEntry, DependencyKind, QualitativeAgent
@@ -147,7 +148,11 @@ class AttentionAgent:
     def __init__(self, max_concurrency: int = 8) -> None:
         self.max_concurrency = max_concurrency
 
-    def _select_pairs(self, agents: list[QualitativeAgent]) -> list[tuple[QualitativeAgent, QualitativeAgent]]:
+    def _select_pairs(
+        self,
+        agents: list[QualitativeAgent],
+        attention_policy: dict | None = None,
+    ) -> list[tuple[QualitativeAgent, QualitativeAgent]]:
         specialists = [a for a in agents if a.role not in WORKER_ROLES]
         pairs: list[tuple[QualitativeAgent, QualitativeAgent]] = []
         seen: set[tuple[str, str]] = set()
@@ -171,8 +176,12 @@ class AttentionAgent:
         for a, b in worker_pairs[:32]:
             add_pair(a, b)
 
+        weights = aggregate_function_weights(attention_policy)
+        pairs.sort(
+            key=lambda ab: pair_relevance(ab[0].role, ab[1].role, "collaboration", weights),
+            reverse=True,
+        )
         if len(pairs) > MAX_ATTENTION_PAIRS:
-            random.shuffle(pairs)
             pairs = pairs[:MAX_ATTENTION_PAIRS]
         return pairs
 
@@ -184,6 +193,7 @@ class AttentionAgent:
         season_weight: float,
         temperature: str,
         dominant_kind: str,
+        attention_policy: dict | None = None,
     ) -> DependencyEntry | None:
         if agent_a.id == agent_b.id:
             return None
@@ -192,9 +202,10 @@ class AttentionAgent:
             agent_a.role in WORKER_ROLES
             and agent_b.role in WORKER_ROLES
         ) or not qwen_factory.is_configured():
-            return _heuristic_judge(
+            entry = _heuristic_judge(
                 agent_a, agent_b, tick, season_weight, temperature, dominant_kind
             )
+            return apply_policy_boost(entry, agent_a.role, agent_b.role, attention_policy) if entry else None
 
         result = await qwen_factory.ainvoke_structured(
             ATTENTION_AGENT,
@@ -212,20 +223,28 @@ class AttentionAgent:
                 result, agent_a, agent_b, tick, season_weight, dominant_kind,
             )
             if entry:
-                return entry
+                return apply_policy_boost(entry, agent_a.role, agent_b.role, attention_policy)
 
-        return _heuristic_judge(agent_a, agent_b, tick, season_weight, temperature, dominant_kind)
+        entry = _heuristic_judge(agent_a, agent_b, tick, season_weight, temperature, dominant_kind)
+        return apply_policy_boost(entry, agent_a.role, agent_b.role, attention_policy) if entry else None
 
     async def judge_all_pairs(
-        self, agents: list[QualitativeAgent], tick: int,
-        season_weight: float, temperature: str, dominant_kind: str,
+        self,
+        agents: list[QualitativeAgent],
+        tick: int,
+        season_weight: float,
+        temperature: str,
+        dominant_kind: str,
+        attention_policy: dict | None = None,
     ) -> list[DependencyEntry]:
         sem = asyncio.Semaphore(self.max_concurrency)
-        pairs = self._select_pairs(agents)
+        pairs = self._select_pairs(agents, attention_policy)
 
         async def _judge(a: QualitativeAgent, b: QualitativeAgent) -> DependencyEntry | None:
             async with sem:
-                return await self.judge_pair(a, b, tick, season_weight, temperature, dominant_kind)
+                return await self.judge_pair(
+                    a, b, tick, season_weight, temperature, dominant_kind, attention_policy,
+                )
 
         results = await asyncio.gather(*[_judge(a, b) for a, b in pairs])
         return [r for r in results if r is not None]

@@ -53,7 +53,8 @@
 
         <aside class="dashboard">
           <nav class="tabs" role="tablist">
-            <button class="tab active" data-tab="controls">Controls</button>
+            <button class="tab active" data-tab="launch">Launch</button>
+            <button class="tab" data-tab="controls">Controls</button>
             <button class="tab" data-tab="colony">Colony</button>
             <button class="tab" data-tab="metrics">Metrics</button>
             <button class="tab" data-tab="activity">Activity</button>
@@ -61,7 +62,21 @@
           </nav>
 
           <div class="tab-panels">
-            <section class="tab-panel active" id="tab-controls">
+            <section class="tab-panel active" id="tab-launch">
+              <h2>Attention Head Mapping</h2>
+              <p class="hint">Configure how each attention head prioritizes societal functions before you deploy. Requires a colony restart to change after launch.</p>
+              <div id="attention-heads" class="attention-heads"></div>
+              <div class="launch-actions">
+                <button id="btn-add-head" class="btn" type="button">+ Add Head</button>
+                <button id="btn-reset-policy" class="btn" type="button">Reset Defaults</button>
+              </div>
+              <h2>Policy Preview</h2>
+              <div id="attention-policy-preview" class="scroll-box tall"></div>
+              <h2>Active Attention Policy</h2>
+              <div id="active-attention-policy" class="status-card">Not deployed yet — configure heads above, then Deploy Colony.</div>
+            </section>
+
+            <section class="tab-panel" id="tab-controls">
               <h2>Simulation</h2>
               <label class="field-row">
                 <span>Colony size</span>

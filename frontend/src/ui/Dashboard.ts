@@ -1,3 +1,15 @@
+import {
+  emptyHead,
+  fetchCatalogue,
+  fetchDefaultPolicy,
+  loadPolicyLocal,
+  normalizePolicy,
+  savePolicyLocal,
+  type AttentionFunction,
+  type AttentionHeadConfig,
+  type AttentionPolicy,
+  type PolicyPreview,
+} from "../attentionPolicy";
 import { getStoredApiKey, saveApiKey } from "../storage/apiKeyStorage";
 import type { Agent, ColonyInfo, ComparisonMetrics, NegotiationRound, ProjectCanvas, SimEvent } from "../types";
 import { DASHBOARD_ROLES, roleLabel } from "../agentRoles";
@@ -64,6 +76,12 @@ export class Dashboard {
   private minimapCanvas: HTMLCanvasElement;
   private minimapCtx: CanvasRenderingContext2D;
   private agentCountInput: HTMLInputElement;
+  private headsEl: HTMLElement;
+  private policyPreviewEl: HTMLElement;
+  private activePolicyEl: HTMLElement;
+  private catalogue: AttentionFunction[] = [];
+  private policy: AttentionPolicy = { heads: {} };
+  private headCounter = 0;
 
   constructor(private scene?: ColonyScene) {
     this.metricsEl = document.getElementById("metrics-content")!;
@@ -82,15 +100,148 @@ export class Dashboard {
     this.minimapCanvas = document.getElementById("colony-minimap") as HTMLCanvasElement;
     this.minimapCtx = this.minimapCanvas.getContext("2d")!;
     this.agentCountInput = document.getElementById("agent-count") as HTMLInputElement;
+    this.headsEl = document.getElementById("attention-heads")!;
+    this.policyPreviewEl = document.getElementById("attention-policy-preview")!;
+    this.activePolicyEl = document.getElementById("active-attention-policy")!;
 
     this.initTabs();
     this.initApiKey();
     this.initLayers();
+    void this.initAttentionPolicy();
   }
 
   getAgentCount(): number {
     const n = parseInt(this.agentCountInput?.value ?? "48", 10);
     return Number.isFinite(n) ? Math.max(6, Math.min(512, n)) : 48;
+  }
+
+  getAttentionPolicy(): AttentionPolicy {
+    return this.policy;
+  }
+
+  private async initAttentionPolicy(): Promise<void> {
+    try {
+      this.catalogue = await fetchCatalogue();
+      const stored = loadPolicyLocal();
+      this.policy = stored ?? (await fetchDefaultPolicy());
+      this.headCounter = Object.keys(this.policy.heads).length;
+      this.renderAttentionHeads();
+      await this.refreshPolicyPreview();
+    } catch {
+      this.policyPreviewEl.textContent = "Could not load attention catalogue.";
+    }
+
+    document.getElementById("btn-add-head")?.addEventListener("click", () => {
+      this.headCounter += 1;
+      const id = `attention_head_${this.headCounter}`;
+      this.policy.heads[id] = emptyHead();
+      this.renderAttentionHeads();
+      void this.refreshPolicyPreview();
+    });
+
+    document.getElementById("btn-reset-policy")?.addEventListener("click", async () => {
+      this.policy = await fetchDefaultPolicy();
+      this.headCounter = Object.keys(this.policy.heads).length;
+      this.renderAttentionHeads();
+      await this.refreshPolicyPreview();
+    });
+  }
+
+  private renderAttentionHeads(): void {
+    const fns = this.catalogue;
+    this.headsEl.innerHTML = Object.entries(this.policy.heads)
+      .map(([headId, head]) => this.renderHeadCard(headId, head, fns))
+      .join("");
+
+    this.headsEl.querySelectorAll("[data-head-id]").forEach((card) => {
+      const headId = (card as HTMLElement).dataset.headId!;
+      const desc = card.querySelector(".head-desc") as HTMLInputElement;
+      desc?.addEventListener("input", () => {
+        this.policy.heads[headId].description = desc.value;
+        void this.refreshPolicyPreview();
+      });
+
+      card.querySelectorAll("[data-fn]").forEach((row) => {
+        const fn = (row as HTMLElement).dataset.fn!;
+        const check = row.querySelector("input[type=checkbox]") as HTMLInputElement;
+        const slider = row.querySelector("input[type=range]") as HTMLInputElement;
+        const val = row.querySelector(".fn-weight-val") as HTMLElement;
+
+        const sync = () => {
+          const w = parseFloat(slider.value) / 100;
+          val.textContent = `${Math.round(w * 100)}%`;
+          if (check.checked) {
+            this.policy.heads[headId].weight_distribution[fn] = w;
+            if (!this.policy.heads[headId].primary_focus.includes(fn)) {
+              this.policy.heads[headId].primary_focus.push(fn);
+            }
+          } else {
+            delete this.policy.heads[headId].weight_distribution[fn];
+            this.policy.heads[headId].primary_focus =
+              this.policy.heads[headId].primary_focus.filter((x) => x !== fn);
+          }
+          void this.refreshPolicyPreview();
+        };
+        check?.addEventListener("change", sync);
+        slider?.addEventListener("input", () => {
+          if (check.checked) sync();
+        });
+      });
+
+      card.querySelector(".btn-remove-head")?.addEventListener("click", () => {
+        delete this.policy.heads[headId];
+        this.renderAttentionHeads();
+        void this.refreshPolicyPreview();
+      });
+    });
+  }
+
+  private renderHeadCard(headId: string, head: AttentionHeadConfig, fns: AttentionFunction[]): string {
+    const fnRows = fns
+      .map((fn) => {
+        const w = head.weight_distribution[fn.id] ?? 0.25;
+        const on = fn.id in head.weight_distribution;
+        return `<label class="fn-row" data-fn="${fn.id}">
+          <input type="checkbox" ${on ? "checked" : ""}/>
+          <span class="fn-label">${fn.label}</span>
+          <input type="range" min="5" max="100" value="${Math.round(w * 100)}"/>
+          <span class="fn-weight-val">${Math.round(w * 100)}%</span>
+        </label>`;
+      })
+      .join("");
+    return `<div class="head-card" data-head-id="${headId}">
+      <div class="head-card-top">
+        <strong>${headId.replace(/_/g, " ")}</strong>
+        <button type="button" class="btn btn-warn btn-remove-head">Remove</button>
+      </div>
+      <input class="head-desc" type="text" placeholder="Description for this head…" value="${head.description ?? ""}"/>
+      <div class="fn-grid">${fnRows}</div>
+    </div>`;
+  }
+
+  private async refreshPolicyPreview(): Promise<void> {
+    savePolicyLocal(this.policy);
+    try {
+      const { preview } = await normalizePolicy(this.policy);
+      this.policyPreviewEl.innerHTML =
+        preview
+          .map(
+            (p: PolicyPreview) =>
+              `<div class="metric-row"><span>${p.label}</span><span>${(p.weight * 100).toFixed(0)}%</span></div>
+               <p class="hint" style="margin:0 0 8px">${p.bias}</p>`,
+          )
+          .join("") || "<p class='hint'>Enable at least one function per head.</p>";
+    } catch {
+      this.policyPreviewEl.textContent = "Preview unavailable.";
+    }
+  }
+
+  updateActiveAttentionPolicy(policy: AttentionPolicy, preview?: PolicyPreview[]): void {
+    const heads = Object.entries(policy.heads ?? {});
+    this.activePolicyEl.innerHTML = `
+      <strong>${heads.length} attention head(s) active</strong><br/>
+      ${heads.map(([id, h]) => `${id}: ${h.description || "—"}`).join("<br/>")}
+      ${preview?.length ? `<br/><br/>Top biases: ${preview.map((p) => p.label).join(", ")}` : ""}`;
   }
 
   private initTabs(): void {

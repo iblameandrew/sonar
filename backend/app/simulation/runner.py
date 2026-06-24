@@ -5,6 +5,7 @@ import json
 import uuid
 from typing import Any, AsyncGenerator
 
+from app.attention_policy import normalize_policy, preview_entries
 from app.baseline.single_agent import SingleAgentBaseline
 from app.llm.qwen_factory import qwen_factory
 from app.graph.simulation_graph import build_simulation_graph, engine
@@ -36,6 +37,7 @@ class SimulationRunner:
         mode: str = "society",
         agent_count: int = 48,
         user_prompt: str | None = None,
+        attention_policy: dict[str, Any] | None = None,
     ) -> SimulationState:
         return SimulationState(
             tick=0,
@@ -61,6 +63,7 @@ class SimulationRunner:
             speed=speed,
             paused=False,
             inject_conflict=False,
+            attention_policy=normalize_policy(attention_policy),
         )
 
     async def start(
@@ -70,6 +73,7 @@ class SimulationRunner:
         mode: str = "society",
         agent_count: int = 48,
         user_prompt: str | None = None,
+        attention_policy: dict[str, Any] | None = None,
     ) -> SimulationState:
         if self._task and not self._task.done():
             self._task.cancel()
@@ -79,7 +83,9 @@ class SimulationRunner:
             engine.custodian.weights = {}
             self.execution_mode = mode
             self.thread_id = str(uuid.uuid4())
-            self.state = self._initial_state(max_ticks, speed, mode, agent_count, user_prompt)
+            self.state = self._initial_state(
+                max_ticks, speed, mode, agent_count, user_prompt, attention_policy,
+            )
             self.state["running"] = True
             self.state["paused"] = False
             self._task = asyncio.create_task(self._run_loop())
@@ -289,6 +295,8 @@ class SimulationRunner:
             "custodian": engine.custodian.to_dict(),
             "qwen": qwen_factory.get_status(),
             "colony": self._colony_stats(s["agents"]),
+            "attention_policy": s.get("attention_policy"),
+            "attention_policy_preview": preview_entries(s.get("attention_policy")),
         }
 
     def _colony_stats(self, agents: list) -> dict[str, Any]:
