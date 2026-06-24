@@ -53,8 +53,8 @@ export interface ProjectCanvas {
   artifacts: { id: string; title: string; kind: string; content: string; author_id: string }[];
   decisions: string[];
   negotiations: NegotiationRound[];
-  voxforge_progress: number;
-  voxforge_voxels: { x: number; y: number; z: number; color: string; label: string }[];
+  society_progress: number;
+  colony_voxels: { x: number; y: number; z: number; color: string; label: string }[];
 }
 
 export interface RunMetrics {
@@ -90,7 +90,7 @@ export interface LayerVisibility {
   connections: boolean;
   negotiations: boolean;
   institutions: boolean;
-  voxforge: boolean;
+  colony: boolean;
   conflictArena: boolean;
   metrics: boolean;
   birthDeath: boolean;

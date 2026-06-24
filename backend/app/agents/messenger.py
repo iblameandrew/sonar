@@ -9,7 +9,7 @@ from app.models.agent import QualitativeAgent
 from app.models.canvas import Artifact, ProjectCanvas
 from app.models.events import SimEvent
 from app.models.institution import Institution
-from app.seed import VOXFORGE_VOXEL_BLUEPRINT
+from app.seed import COLONY_VOXEL_BLUEPRINT
 
 PROPOSE_PROMPT = ChatPromptTemplate.from_messages(
     [
@@ -17,7 +17,7 @@ PROPOSE_PROMPT = ChatPromptTemplate.from_messages(
             "human",
             "Agent: {name} ({role})\nVerbs: {verbs}\nNouns: {nouns}\n"
             "Task: {task_title} — {task_desc}\nPhase: {phase}\n"
-            "Write a concise engineering proposal or code skeleton for VoxForge (2-4 sentences).",
+            "Write a concise engineering proposal or code skeleton for Sociomorphic Computing (2-4 sentences).",
         ),
     ]
 )
@@ -98,10 +98,10 @@ class Messenger:
 
         done = sum(1 for t in canvas.subtasks if t.status == "done")
         progress = done / max(len(canvas.subtasks), 1)
-        canvas.voxforge_voxels = VOXFORGE_VOXEL_BLUEPRINT[: int(progress * len(VOXFORGE_VOXEL_BLUEPRINT))]
-        canvas.voxforge_progress = progress
+        canvas.colony_voxels = COLONY_VOXEL_BLUEPRINT[: int(progress * len(COLONY_VOXEL_BLUEPRINT))]
+        canvas.society_progress = progress
 
-        for voxel in canvas.voxforge_voxels[-2:]:
-            events.append(SimEvent(type="voxforge_voxel", tick=tick, payload=voxel))
+        for voxel in canvas.colony_voxels[-2:]:
+            events.append(SimEvent(type="colony_voxel", tick=tick, payload=voxel))
 
         return updated, canvas, events

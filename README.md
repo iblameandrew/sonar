@@ -1,12 +1,12 @@
 <p align="center">
-  <img src="docs/voxforge-readme-banner.jpg" alt="VoxForge — Agent Society Colony" width="100%" />
+  <img src="docs/sociomorphic-banner.jpg" alt="Sociomorphic Computing — Agent Society Colony" width="100%" />
 </p>
 
-<h1 align="center">VoxForge</h1>
-<p align="center"><strong>THE ATTENTION AGENT SOCIETY</strong></p>
+<h1 align="center">Sociomorphic Computing</h1>
+<p align="center"><strong>The Attention Agent Society</strong></p>
 <p align="center">
-  A living multi-agent colony that collaboratively designs and builds a real-time engineering workspace —<br/>
-  visualized as a Conway ant-farm on a 96×96 voxel meadow, orchestrated by LangGraph, powered by Qwen Cloud.
+  A transformer architecture reinterpreted as living social physics —<br/>
+  gamified into conscious agents on a Conway ant-farm colony, orchestrated by LangGraph, powered by Qwen Cloud.
 </p>
 
 <p align="center">
@@ -20,15 +20,89 @@
 
 ## What is this?
 
-**VoxForge** is a sociomorphic computing demo: dozens (or hundreds) of specialist agents inhabit a shared grid, negotiate tasks, resolve conflicts, and iteratively build a collaborative workspace — while you watch them move across a **Conway's Game of Life** substrate in an isometric ant-colony view.
+**Sociomorphic Computing** is an exploration in qualitative social physics: dozens (or hundreds) of specialist agents inhabit a shared grid, negotiate tasks, resolve conflicts, and iteratively build a collaborative workspace — while you watch them move across a **Conway's Game of Life** substrate in an isometric ant-colony view.
 
-The society is not a chatroom. It is a **closed learning loop** where agents perform work, form qualitative dependencies, audit collective regret, reform when misaligned, and confess learnings back into institutional memory.
+The society is not a chatroom. It is a **closed learning loop** where agents perform work, form qualitative dependencies, audit collective regret, reform when misaligned, and confess learnings back into institutional memory. Under the hood, every tick is a ritual cycle of action, reflection, judgment, and renewal — the forward and backward passes of a transformer, made visible.
 
 | Mode | What happens |
 |------|----------------|
 | **Run Society** | Full multi-agent LangGraph loop with negotiation, conflict resolution, and live SSE |
 | **Run Baseline** | Single-agent control run for apples-to-apples efficiency comparison |
 | **Colony Dashboard** | Minimap, sector stats, agent registry, and movement log |
+
+---
+
+## The Conceptual Transformer
+
+### Gamified social physics
+
+The Attention Agent Society reinterprets the transformer block as a **living system of conscious agents**. Every mathematical primitive becomes a qualitative, agentic role guided by a distinct philosophical principle. Forward and backward passes become ritual cycles of action, reflection, judgment, and renewal — producing emergent social and creative intelligence rather than silent matrix multiplication.
+
+This is not metaphor layered on top of engineering. It is the **design grammar** of the system: each agent embodies a computational function *and* a conceptual archetype, so the simulation can be read simultaneously as software and as philosophy.
+
+### Neural component → agent mapping
+
+| Neural / Transformer Component | Agent Role | Conceptual Archetype | Rationale |
+|-------------------------------|------------|----------------------|-----------|
+| Cost function / loss | **The Auditor** | Principle of Discernment and Purification | Measures the gap between current reality and the ideal state. Generates regret as a sacred signal for refinement and service to higher order. |
+| Backward connections / residual flow | **The Confessor** | Principle of Compassionate Return and Memory | Carries consequences and lessons backward to their origins with protective care. Preserves emotional and contextual continuity across the system. |
+| Gradient descent / parameter update | **The Reformer** | Principle of Transformative Judgment | Enacts intense, directed change through crisis and purification. Forces death of inefficient patterns and rebirth in the direction of reduced regret. |
+| Feed-forward activation | **The Messenger** | Principle of Swift Communication and Bridging | Rapidly distributes information and activation between agents. Acts as the dynamic carrier that connects disparate parts of the collective. |
+| Learned weights / persistent parameters | **The Custodian** | Principle of Stable Memory and Accumulation | Holds slow-changing, persistent knowledge and dependency strength. Embodies accumulated wisdom and material continuity across iterations. |
+| Core attention mechanism | **The Attention Agent** | Principle of Focused Relational Awareness | Determines qualitative relevance and importance between agents. Selects and elevates meaningful connections with creative intentionality. |
+| Attention matrix / dependency graph | **Social Playbook** | Principle of Relational Harmony and Mapping | Maintains the living record of all qualitative distances, strengths, and rationales. Serves as the transparent, editable map of collective interdependencies. |
+| Low-rank condensation / clustering | **Emergent Institutions** | Principle of Crystallization and Governance | Condenses repeated patterns into stable, higher-level structures that issue policies and exert influence over members. |
+| Agent creation rule | **Birth mechanism** | Principle of Initiation and Emergence | Brings new agents into existence when sufficient supportive dependencies accumulate. |
+| Persistence rule | **Survival mechanism** | Principle of Sustained Coherence | Determines which agents endure based on sufficient meaningful connections. |
+| Dissolution rule | **Death mechanism** | Principle of Release and Recycling | Returns isolated or overloaded agents to the collective pool, freeing resources for renewal. |
+| Temporal modulation | **Seasonal variance** | Principle of Cyclic Adaptation | Introduces varying conditions of sharpness versus diffusion, allowing periods of crystallization and periods of exploration. |
+| Higher-order memory consolidation | **RAPTOR-style tree** | Principle of Transcendent Synthesis | Builds hierarchical, long-term memory structures that summarize and preserve wisdom across cycles. |
+
+### The mandala of computation
+
+The Attention Agent Society is a complete gamification of the transformer architecture into qualitative social physics. Each core neural operation is embodied as a conscious agent guided by a distinct philosophical principle:
+
+- **The Auditor** enforces discernment and purification.
+- **The Confessor** enables compassionate return and memory.
+- **The Reformer** drives transformative judgment.
+- **The Messenger** bridges and communicates.
+- **The Custodian** stabilizes accumulated wisdom.
+- **The Attention Agent** focuses relational awareness.
+
+Together they form a self-organizing collective capable of emergent intelligence. Institutions crystallize governance. Birth, survival, and death rules mirror natural cycles of creation and release. Seasonal variance introduces temporal rhythm, alternating focused refinement with open exploration.
+
+The result is not only a functional multi-agent system but a coherent conceptual mandala — computation as a living ritual of **discernment, memory, transformation, and relational harmony**.
+
+```mermaid
+flowchart TB
+    subgraph forward["Forward Pass — Action & Relation"]
+        M[Messenger<br/>Communication]
+        A[Attention Agent<br/>Relational Awareness]
+        SP[Social Playbook<br/>Dependency Mapping]
+        M --> A --> SP
+    end
+
+    subgraph judgment["Judgment Cycle"]
+        AU[Auditor<br/>Discernment]
+        AU -->|regret signal| RF[Reformer<br/>Transformative Judgment]
+        AU -->|lessons returned| CF[Confessor<br/>Compassionate Memory]
+    end
+
+    subgraph emergence["Emergence & Rhythm"]
+        INST[Institutions<br/>Crystallization]
+        LIFE[Birth · Survival · Death]
+        SEA[Seasonal Variance]
+        RAP[RAPTOR Tree<br/>Transcendent Synthesis]
+    end
+
+    forward --> judgment
+    judgment --> emergence
+    emergence --> forward
+    CU[Custodian<br/>Stable Memory] -.-> forward
+    CU -.-> judgment
+```
+
+> **Operational layer:** The LangGraph loop (PERFORM → DECOMPOSE → ATTEND → …) is the executable surface of this mandala. The mapping table above is the conceptual substrate; the [Learning loop](#learning-loop) section below is where it runs.
 
 ---
 
@@ -61,7 +135,7 @@ The frontend renders a fixed **isometric orthographic** view — like watching a
 
 ## Learning loop
 
-Each simulation tick runs the full society graph:
+Each simulation tick runs the full society graph — the operational ritual cycle layered on the conceptual transformer:
 
 ```
 PERFORM → DECOMPOSE → ATTEND → NEGOTIATE → AUDIT → CONFLICT? → REFORM → CONFESS
@@ -80,17 +154,20 @@ flowchart LR
     CF --> P
 ```
 
-| Agent | Role |
-|-------|------|
-| **Messenger** | Performs work, proposes artifacts, streams voxel progress |
-| **Decomposer** | Breaks the VoxForge goal into subtasks, assigns specialists |
-| **Attention** | Judges pairwise qualitative dependencies (economic, kinship, prestige…) |
-| **Negotiator** | Structured proposal / counter-offer rounds on contested tasks |
-| **Auditor** | Measures collective regret against the *ought* snapshot |
-| **Conflict Resolver** | Voting & compromise when regret spikes or conflict is injected |
-| **Reformer** | Adjusts agent adjectives and roles after misalignment |
-| **Confessor** | Writes learnings to the Custodian weight matrix |
-| **Lifecycle** | Birth/death rules driven by dependency strength on the grid |
+| Agent | Transformer analogue | Role |
+|-------|---------------------|------|
+| **Messenger** | Feed-forward activation | Performs work, proposes artifacts, streams voxel progress |
+| **Decomposer** | Task routing / input projection | Breaks the project goal into subtasks, assigns specialists |
+| **Attention** | Core attention mechanism | Judges pairwise qualitative dependencies (economic, kinship, prestige…) |
+| **Negotiator** | Multi-head contention resolution | Structured proposal / counter-offer rounds on contested tasks |
+| **Auditor** | Cost function / loss | Measures collective regret against the *ought* snapshot |
+| **Conflict Resolver** | High-loss intervention | Voting & compromise when regret spikes or conflict is injected |
+| **Reformer** | Gradient descent / update | Adjusts agent adjectives and roles after misalignment |
+| **Confessor** | Backward / residual flow | Writes learnings to the Custodian weight matrix |
+| **Lifecycle** | Birth · survival · death rules | Agents emerge, endure, or dissolve based on dependency strength |
+| **Institutions** | Low-rank condensation | Crystallized governance from repeated playbook patterns |
+| **Seasons** | Temporal modulation | Sharp vs diffuse judgment across macro/micro cycles |
+| **RAPTOR** | Hierarchical memory | Long-horizon synthesis of playbook history |
 
 ### Specialist cast
 
@@ -218,7 +295,7 @@ sociomorphic-computing/
 │       ├── ui/Dashboard.ts      # Tabbed dashboard + colony panel
 │       └── sse/client.ts        # Live event stream
 └── docs/
-    └── voxforge-readme-banner.jpg  # Retro voxel banner (Grok Imagine)
+    └── sociomorphic-banner.jpg       # Retro voxel banner (Grok Imagine)
 ```
 
 **Backend:** FastAPI · LangGraph · LangChain · Pydantic · SSE-Starlette · scikit-learn (Attention embeddings)
@@ -237,7 +314,7 @@ After running both modes, the dashboard compares:
 - **Negotiation rounds**
 - **Transparency events** (SSE + playbook entries)
 - **Token usage** (Qwen Cloud)
-- **VoxForge feature completion** (%)
+- **Society progress** (%)
 
 The society is designed to win on **quality and transparency** while the baseline wins on raw iteration count — making the tradeoff visible and measurable.
 
@@ -261,4 +338,4 @@ Grid constants live in `backend/app/grid.py` and mirror `frontend/src/scene/Colo
 
 MIT — built for the Agent Society Design hackathon track.
 
-<p align="center"><sub>Watch the colony think. Measure the society win.</sub></p>
+<p align="center"><sub>Computation as ritual. Intelligence as relation. Watch the colony think.</sub></p>

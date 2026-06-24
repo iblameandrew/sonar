@@ -43,7 +43,7 @@ class QwenApiKeyRequest(BaseModel):
 
 @router.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "system": "THE ATTENTION AGENT SOCIETY", "project": "VoxForge", "llm": "Qwen Cloud"}
+    return {"status": "ok", "system": "Sociomorphic Computing", "project": "Sociomorphic Computing", "llm": "Qwen Cloud"}
 
 
 @router.get("/qwen/status")

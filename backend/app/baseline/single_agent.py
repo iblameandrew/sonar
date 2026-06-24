@@ -15,9 +15,9 @@ BASELINE_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "human",
-            "You are a single powerful agent building VoxForge alone.\n"
+            "You are a single powerful agent building Sociomorphic Computing alone.\n"
             "Task: {task_title} — {task_desc}\n"
-            "All VoxForge requirements: visualization, LangGraph, SSE, negotiation UI, metrics, integration.\n"
+            "All Sociomorphic Computing requirements: visualization, LangGraph, SSE, negotiation UI, metrics, integration.\n"
             "Produce a concise engineering proposal (2-4 sentences). No collaboration transparency.",
         ),
     ]

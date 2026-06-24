@@ -137,7 +137,7 @@ async def audit_node(state: SimulationState) -> dict[str, Any]:
         m.subtasks_completed = sum(
             1 for t in state["canvas"].subtasks if t.status == "done"
         )
-        m.features_complete = state["canvas"].voxforge_progress
+        m.features_complete = state["canvas"].society_progress
         m.transparency_events += 1
         if event.payload.get("conflict_detected"):
             m.conflicts_detected += 1

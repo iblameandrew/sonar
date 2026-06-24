@@ -37,7 +37,7 @@ export class PixelLifeScene {
   private groundMesh: THREE.Mesh;
   private agentVisuals = new Map<string, AgentVisual>();
   private connectionLines: THREE.Line[] = [];
-  private voxforgeMeshes: THREE.Mesh[] = [];
+  private colonyMeshes: THREE.Mesh[] = [];
   private debateParticles: THREE.Points[] = [];
   private agents = new Map<string, Agent>();
   private trees: THREE.Group[] = [];
@@ -129,7 +129,7 @@ export class PixelLifeScene {
 
     this.layers = {
       lifeGrid: true, agents: true, connections: true, negotiations: true,
-      institutions: true, voxforge: true, conflictArena: true, metrics: true,
+      institutions: true, colony: true, conflictArena: true, metrics: true,
       birthDeath: true, attention: true, auditor: true, reformer: true,
       confessor: true, messenger: true,
     };
@@ -162,8 +162,8 @@ export class PixelLifeScene {
       case "auditor_regret":
         if (this.layers.auditor) this.flashSky(0xffccbc);
         break;
-      case "voxforge_voxel":
-        if (this.layers.voxforge) this.placeVoxForgeVoxel(p as { x: number; y: number; color: string });
+      case "colony_voxel":
+        if (this.layers.colony) this.placeColonyVoxel(p as { x: number; y: number; color: string });
         break;
       case "agent_birth":
         if (this.layers.birthDeath) this.upsertAgent({
@@ -185,8 +185,8 @@ export class PixelLifeScene {
   }
 
   loadAgents(agents: Agent[]): void { for (const a of agents) this.upsertAgent(a); }
-  loadVoxForge(voxels: { x: number; y: number; color: string }[]): void {
-    for (const v of voxels) this.placeVoxForgeVoxel(v);
+  loadColonyVoxels(voxels: { x: number; y: number; color: string }[]): void {
+    for (const v of voxels) this.placeColonyVoxel(v);
   }
 
   upsertAgent(agent: Agent): void {
@@ -247,7 +247,7 @@ export class PixelLifeScene {
     this.lifeMeshes.visible = this.layers.lifeGrid;
     this.agentVisuals.forEach((v) => { v.group.visible = this.layers.agents; v.glow.visible = this.layers.agents; });
     this.connectionLines.forEach((l) => (l.visible = this.layers.connections));
-    this.voxforgeMeshes.forEach((m) => (m.visible = this.layers.voxforge));
+    this.colonyMeshes.forEach((m) => (m.visible = this.layers.colony));
     this.debateParticles.forEach((p) => (p.visible = this.layers.negotiations));
     if (this.conflictRing) this.conflictRing.visible = this.layers.conflictArena;
   }
@@ -275,7 +275,7 @@ export class PixelLifeScene {
       vis.halo.scale.setScalar(2.2 + Math.sin(t * 2 + vis.pulse) * 0.4);
     }
 
-    for (const mesh of this.voxforgeMeshes) {
+    for (const mesh of this.colonyMeshes) {
       const m = mesh.material as THREE.MeshStandardMaterial;
       m.emissiveIntensity = 0.5 + Math.sin(t * 4 + mesh.position.x) * 0.3;
     }
@@ -404,7 +404,7 @@ export class PixelLifeScene {
     }
   }
 
-  private placeVoxForgeVoxel(v: { x: number; y: number; color: string }): void {
+  private placeColonyVoxel(v: { x: number; y: number; color: string }): void {
     const col = new THREE.Color(v.color);
     const mesh = new THREE.Mesh(
       new THREE.BoxGeometry(CELL * 0.95, CELL * 1.2, CELL * 0.95),
@@ -414,7 +414,7 @@ export class PixelLifeScene {
     );
     mesh.position.set(v.x * CELL, CELL * 0.8, v.y * CELL);
     this.scene.add(mesh);
-    this.voxforgeMeshes.push(mesh);
+    this.colonyMeshes.push(mesh);
   }
 
   private showDebate(fromId: string, toId: string): void {

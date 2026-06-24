@@ -6,7 +6,7 @@ import uuid
 from app.grid import allocate_positions
 from app.models.agent import QualitativeAgent, SpecialistRole
 
-VOXFORGE_REQUIREMENTS = [
+SOCIETY_REQUIREMENTS = [
     "Interactive voxel-art 3D visualization of agent societies",
     "LangGraph orchestration with live SSE updates",
     "Task decomposition UI and negotiation panel",
@@ -29,7 +29,7 @@ WORKER_NOUNS = ["grain", "spark", "trail", "node", "pulse", "mark"]
 WORKER_ADJ = ["alert", "busy", "calm", "eager", "restless"]
 
 INITIAL_SUBTASKS = [
-    ("Architecture", "Define VoxForge system architecture and module boundaries", None),
+    ("Architecture", "Define Sociomorphic Computing system architecture and module boundaries", None),
     ("Voxel Viz", "Implement Conway colony visualization", "Architecture"),
     ("LangGraph Core", "Build PERFORM→ATTEND→AUDIT→REFORM→CONFESS graph", "Architecture"),
     ("SSE Pipeline", "Wire live SSE event stream to frontend", "LangGraph Core"),
@@ -91,16 +91,27 @@ def create_project_canvas() -> ProjectCanvas:
         tid = f"task-{uuid.uuid4().hex[:6]}"
         id_map[title] = tid
         subtasks.append(Subtask(id=tid, title=title, description=desc, parent_id=id_map.get(parent_title) if parent_title else None))
-    return ProjectCanvas(goal="Build VoxForge collaborative engineering workspace", requirements=VOXFORGE_REQUIREMENTS, subtasks=subtasks)
+    return ProjectCanvas(
+        goal="Build Sociomorphic Computing — qualitative social physics as software",
+        requirements=SOCIETY_REQUIREMENTS,
+        subtasks=subtasks,
+    )
 
 
 DEFAULT_OUGHT: dict = {
-    "description": "VoxForge must be demo-ready with society outperforming single-agent baseline",
+    "description": "Sociomorphic Computing must be demo-ready with society outperforming single-agent baseline",
     "desired_adjectives": ["collaborative", "transparent", "efficient", "demo-ready"],
-    "voxforge_modules": ["voxel_visualization", "langgraph_orchestration", "sse_streaming", "negotiation_panel", "metrics_dashboard", "baseline_comparison"],
+    "society_modules": [
+        "voxel_visualization",
+        "langgraph_orchestration",
+        "sse_streaming",
+        "negotiation_panel",
+        "metrics_dashboard",
+        "baseline_comparison",
+    ],
 }
 
-VOXFORGE_VOXEL_BLUEPRINT = [
+COLONY_VOXEL_BLUEPRINT = [
     {"x": 45, "y": 45, "z": 0, "color": "#4060a0", "label": "backend_tower"},
     {"x": 46, "y": 45, "z": 0, "color": "#60c080", "label": "sse_pipe"},
     {"x": 47, "y": 45, "z": 0, "color": "#f0c040", "label": "ui_panel"},

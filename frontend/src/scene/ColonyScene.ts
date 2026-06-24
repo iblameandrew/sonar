@@ -62,7 +62,7 @@ export class ColonyScene {
   private agents = new Map<string, Agent>();
   private prevPositions = new Map<string, { x: number; y: number }>();
   private connectionLines: THREE.Line[] = [];
-  private voxforgeMeshes: THREE.Mesh[] = [];
+  private colonyMeshes: THREE.Mesh[] = [];
   private debateParticles: THREE.Points[] = [];
   private conflictRing: THREE.Mesh | null = null;
   private clock = new THREE.Clock();
@@ -197,7 +197,7 @@ export class ColonyScene {
       connections: true,
       negotiations: true,
       institutions: true,
-      voxforge: true,
+      colony: true,
       conflictArena: true,
       metrics: true,
       birthDeath: true,
@@ -240,8 +240,8 @@ export class ColonyScene {
       case "auditor_regret":
         if (this.layers.auditor) this.flashSky(0xffccbc);
         break;
-      case "voxforge_voxel":
-        if (this.layers.voxforge) this.placeVoxForgeVoxel(p as { x: number; y: number; color: string });
+      case "colony_voxel":
+        if (this.layers.colony) this.placeColonyVoxel(p as { x: number; y: number; color: string });
         break;
       case "agent_birth":
         if (this.layers.birthDeath) {
@@ -273,8 +273,8 @@ export class ColonyScene {
     for (const a of agents) this.upsertAgent(a);
   }
 
-  loadVoxForge(voxels: { x: number; y: number; color: string }[]): void {
-    for (const v of voxels) this.placeVoxForgeVoxel(v);
+  loadColonyVoxels(voxels: { x: number; y: number; color: string }[]): void {
+    for (const v of voxels) this.placeColonyVoxel(v);
   }
 
   getAgents(): Agent[] {
@@ -369,7 +369,7 @@ export class ColonyScene {
     this.agentMesh.visible = this.layers.agents;
     this.treeMesh.visible = true;
     this.connectionLines.forEach((l) => (l.visible = this.layers.connections));
-    this.voxforgeMeshes.forEach((m) => (m.visible = this.layers.voxforge));
+    this.colonyMeshes.forEach((m) => (m.visible = this.layers.colony));
     this.debateParticles.forEach((p) => (p.visible = this.layers.negotiations));
     if (this.conflictRing) this.conflictRing.visible = this.layers.conflictArena;
   }
@@ -494,7 +494,7 @@ export class ColonyScene {
     }
   }
 
-  private placeVoxForgeVoxel(v: { x: number; y: number; color: string }): void {
+  private placeColonyVoxel(v: { x: number; y: number; color: string }): void {
     const col = new THREE.Color(v.color);
     const mesh = new THREE.Mesh(
       new THREE.BoxGeometry(CELL * 0.9, CELL * 1.4, CELL * 0.9),
@@ -502,7 +502,7 @@ export class ColonyScene {
     );
     mesh.position.set(v.x * CELL, CELL * 0.7, v.y * CELL);
     this.scene.add(mesh);
-    this.voxforgeMeshes.push(mesh);
+    this.colonyMeshes.push(mesh);
   }
 
   private showDebate(fromId: string, toId: string): void {

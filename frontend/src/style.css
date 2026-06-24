@@ -40,7 +40,7 @@ html, body, #app {
 
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand-icon { font-size: 22px; color: var(--grass); }
-.brand h1 { font-size: 18px; font-weight: 700; color: var(--grass-dark); letter-spacing: 1px; }
+.brand h1 { font-size: 15px; font-weight: 700; color: var(--grass-dark); letter-spacing: 0.5px; white-space: nowrap; }
 .tagline { font-size: 11px; color: var(--text-muted); }
 
 .header-stats {

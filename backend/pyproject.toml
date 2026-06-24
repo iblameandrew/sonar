@@ -1,7 +1,7 @@
 [project]
-name = "attention-agent"
+name = "sociomorphic-computing"
 version = "0.1.0"
-description = "THE ATTENTION AGENT — qualitative social physics simulation"
+description = "Sociomorphic Computing — transformer architecture as qualitative social physics"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",

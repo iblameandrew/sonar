@@ -97,7 +97,7 @@ class QwenLLMFactory:
             ),
             "decomposer": RoleConfig(
                 model="qwen-max", temperature=0.5, max_tokens=1024,
-                system_prompt="You decompose VoxForge engineering goals into subtasks.",
+                system_prompt="You decompose Sociomorphic Computing goals into subtasks.",
             ),
             "negotiator": RoleConfig(
                 model="qwen-max", temperature=0.7, max_tokens=1024,
@@ -135,7 +135,7 @@ class QwenLLMFactory:
             "raptor": RoleConfig(model="qwen-plus", temperature=0.5, max_tokens=1024),
             "baseline": RoleConfig(
                 model=DEFAULT_MODEL, temperature=0.7, max_tokens=2048,
-                system_prompt="You are a single powerful agent building VoxForge alone.",
+                system_prompt="You are a single powerful agent building Sociomorphic Computing alone.",
             ),
             "default": RoleConfig(model=DEFAULT_MODEL, temperature=0.7, max_tokens=2048),
         }

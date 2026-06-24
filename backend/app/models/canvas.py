@@ -42,14 +42,14 @@ class NegotiationRound(BaseModel):
 
 
 class ProjectCanvas(BaseModel):
-    goal: str = "Build VoxForge collaborative engineering workspace"
+    goal: str = "Build Sociomorphic Computing — qualitative social physics as software"
     requirements: list[str] = Field(default_factory=list)
     subtasks: list[Subtask] = Field(default_factory=list)
     artifacts: list[Artifact] = Field(default_factory=list)
     decisions: list[str] = Field(default_factory=list)
     negotiations: list[NegotiationRound] = Field(default_factory=list)
-    voxforge_progress: float = 0.0
-    voxforge_voxels: list[dict] = Field(default_factory=list)
+    society_progress: float = 0.0
+    colony_voxels: list[dict] = Field(default_factory=list)
 
     def add_artifact(self, artifact: Artifact) -> None:
         self.artifacts.append(artifact)

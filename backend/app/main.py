@@ -12,8 +12,8 @@ from app.api.routes import router
 load_dotenv()
 
 app = FastAPI(
-    title="THE ATTENTION AGENT SOCIETY",
-    description="VoxForge — multi-agent collaborative engineering society",
+    title="Sociomorphic Computing",
+    description="Sociomorphic Computing — transformer architecture as qualitative social physics",
     version="0.2.0",
 )
 

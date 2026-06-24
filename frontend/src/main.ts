@@ -31,7 +31,7 @@ async function init() {
   if (state.qwen) dashboard.updateQwen(state.qwen);
   if (state.agents?.length) {
     scene.loadAgents(state.agents as Agent[]);
-    if (state.canvas?.voxforge_voxels) scene.loadVoxForge(state.canvas.voxforge_voxels);
+    if (state.canvas?.colony_voxels) scene.loadColonyVoxels(state.canvas.colony_voxels);
     dashboard.updateTasks(state.canvas as ProjectCanvas);
     dashboard.refreshColony(state.agents as Agent[]);
     if (state.colony) dashboard.updateColonyFromServer(state.colony as ColonyInfo);
