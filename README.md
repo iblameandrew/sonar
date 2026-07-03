@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/colony-banner.jpg" alt="Qualitative Self-Attention — Agent Society on a Conway Grid" width="100%" />
+  <img src="docs/qsa-banner.jpg" alt="Qualitative Self-Attention — Agent Society on a Conway Grid" width="100%" />
 </p>
 
 <h1 align="center">Qualitative Self-Attention</h1>
@@ -546,7 +546,7 @@ qualitative-self-attention/
 │       ├── ui/Dashboard.ts      # Tabbed dashboard + colony panel
 │       └── sse/client.ts        # Live event stream
 └── docs/
-    └── colony-banner.jpg             # Retro voxel banner (Grok Imagine)
+    └── qsa-banner.jpg                  # Retro voxel banner (Grok Imagine)
 ```
 
 **Backend:** FastAPI · LangGraph · LangChain · Pydantic · SSE-Starlette · scikit-learn (Attention embeddings)
