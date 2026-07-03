@@ -12,8 +12,8 @@ from app.api.routes import router
 load_dotenv()
 
 app = FastAPI(
-    title="Colony",
-    description="Colony — transformer architecture as qualitative social physics",
+    title="Qualitative Self-Attention",
+    description="Qualitative Self-Attention — transformer architecture as qualitative social physics",
     version="0.2.0",
 )
 

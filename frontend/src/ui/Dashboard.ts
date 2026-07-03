@@ -680,14 +680,14 @@ export class Dashboard {
       <div class="metric-row"><span>Negotiations</span><span class="metric-win">${s.negotiations}</span></div>
       <div class="metric-row"><span>Transparency</span><span class="metric-win">${s.transparency_events}</span></div>
       <div class="metric-row"><span>Tokens</span><span>S:${s.tokens_estimate} B:${b.tokens_estimate}</span></div>
-      <div class="metric-row"><span>Colony progress</span><span>${(s.features_complete * 100).toFixed(0)}%</span></div>
+      <div class="metric-row"><span>Society progress</span><span>${(s.features_complete * 100).toFixed(0)}%</span></div>
       <p style="margin-top:10px;font-size:11px;color:var(--text-muted)">${metrics.summary}</p>
     `;
   }
 
   updateTasks(canvas?: ProjectCanvas): void {
     if (!canvas?.subtasks?.length) {
-      this.taskEl.innerHTML = "<p class='hint'>No tasks yet — deploy a colony to decompose your prompt.</p>";
+      this.taskEl.innerHTML = "<p class='hint'>No tasks yet — deploy society to decompose your prompt.</p>";
       return;
     }
     this.taskEl.innerHTML = canvas.subtasks
@@ -810,7 +810,7 @@ export class Dashboard {
     this.movementEl.innerHTML = "";
     if (this.activePolicyEl) {
       this.activePolicyEl.textContent =
-        "Not deployed yet — configure heads above, then Deploy Colony.";
+        "Not deployed yet — configure heads above, then Deploy Society.";
     }
   }
 

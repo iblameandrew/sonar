@@ -30,7 +30,7 @@ CONFLICT_PROMPT = ChatPromptTemplate.from_messages(
             "human",
             "Regret: {regret}\nNarrative: {narrative}\n"
             "Disputants: {agents}\nRecent negotiations: {negotiations}\n"
-            "Mediate conflict for Colony architecture. Return JSON with proposal, "
+            "Mediate conflict for society architecture. Return JSON with proposal, "
             "counter_offer, outcome (ONLY: accepted|compromise|rejected|voting), "
             "rationale, and decision (the resolved plan text — do not put the plan in outcome).",
         ),

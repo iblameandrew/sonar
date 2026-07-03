@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Colony</title>
+    <title>Qualitative Self-Attention</title>
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="icon" href="/favicon-32x32.png" type="image/png" sizes="32x32" />
@@ -22,7 +22,7 @@
           <div class="stage-overlay">
             <div class="stage-brand">
               <img class="brand-icon" src="/favicon-32x32.png" width="20" height="20" alt="" />
-              <span>Colony</span>
+              <span>QSA</span>
             </div>
             <div class="stage-stats">
               <span id="tick-label">Tick 0</span>
@@ -36,7 +36,7 @@
 
           <div class="prompt-dock">
             <div class="prompt-header">
-              <h2>Colony Problem</h2>
+              <h2>Society Problem</h2>
               <p class="hint">Describe what the agent society should solve. Specialists decompose your prompt into tasks.</p>
             </div>
             <textarea
@@ -45,7 +45,7 @@
               placeholder="e.g. Design a real-time dashboard that compares multi-agent collaboration against a single-agent baseline, with live SSE updates and conflict resolution…"
             ></textarea>
             <div class="prompt-actions">
-              <button id="btn-solve" class="btn btn-primary btn-large">▶ Deploy Colony</button>
+              <button id="btn-solve" class="btn btn-primary btn-large">▶ Deploy Society</button>
               <span id="active-goal" class="active-goal"></span>
             </div>
           </div>
@@ -57,7 +57,7 @@
           <div id="answer-modal-backdrop" class="answer-modal-backdrop">
             <div class="answer-modal-panel">
               <header class="answer-modal-header">
-                <h2 id="answer-modal-title">Colony Answer</h2>
+                <h2 id="answer-modal-title">Society Answer</h2>
                 <button id="answer-modal-close" class="btn" type="button" aria-label="Close">✕</button>
               </header>
               <div id="answer-modal-body" class="answer-modal-body markdown-body"></div>
@@ -69,7 +69,7 @@
           <nav class="tabs" role="tablist">
             <button class="tab active" data-tab="launch">Launch</button>
             <button class="tab" data-tab="controls">Controls</button>
-            <button class="tab" data-tab="colony">Colony</button>
+            <button class="tab" data-tab="colony">Society</button>
             <button class="tab" data-tab="metrics">Metrics</button>
             <button class="tab" data-tab="activity">Activity</button>
             <button class="tab" data-tab="settings">Settings</button>
@@ -87,13 +87,13 @@
               <h2>Policy Preview</h2>
               <div id="attention-policy-preview" class="scroll-box tall"></div>
               <h2>Active Attention Policy</h2>
-              <div id="active-attention-policy" class="status-card">Not deployed yet — configure heads above, then Deploy Colony.</div>
+              <div id="active-attention-policy" class="status-card">Not deployed yet — configure heads above, then Deploy Society.</div>
             </section>
 
             <section class="tab-panel" id="tab-controls">
               <h2>Simulation</h2>
               <label class="field-row">
-                <span>Colony size</span>
+                <span>Society size</span>
                 <input id="agent-count" type="number" min="4" max="512" value="48" />
               </label>
               <label class="field-row">
@@ -120,8 +120,8 @@
                 />
               </label>
               <p class="hint">Hover grid cells for agent system prompts · Shift+drag pan · scroll zoom</p>
-              <button id="btn-view-answer" class="btn btn-primary hidden" type="button">View Colony Answer</button>
-              <button id="btn-reset" class="btn btn-reset" type="button" title="Stop simulation and clear colony state">↺ Reset Colony</button>
+              <button id="btn-view-answer" class="btn btn-primary hidden" type="button">View Society Answer</button>
+              <button id="btn-reset" class="btn btn-reset" type="button" title="Stop simulation and clear society state">↺ Reset Society</button>
               <div class="btn-grid">
                 <button id="btn-society" class="btn btn-primary">Run Society</button>
                 <button id="btn-baseline" class="btn">Baseline</button>

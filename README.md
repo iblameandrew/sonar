@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/colony-banner.jpg" alt="Colony — Agent Society on a Conway Grid" width="100%" />
+  <img src="docs/colony-banner.jpg" alt="Qualitative Self-Attention — Agent Society on a Conway Grid" width="100%" />
 </p>
 
-<h1 align="center">Colony</h1>
+<h1 align="center">Qualitative Self-Attention</h1>
 <p align="center"><strong>Agent society on a Conway grid</strong></p>
 <p align="center">
   A transformer architecture reinterpreted as living social physics —<br/>
@@ -20,7 +20,9 @@
 
 ## What is this?
 
-**Colony** is an exploration in qualitative social physics: dozens (or hundreds) of specialist agents inhabit a shared grid, negotiate tasks, resolve conflicts, and iteratively build a collaborative workspace — while you watch them move across a **Conway's Game of Life** substrate in an isometric ant-colony view.
+**Qualitative Self-Attention** (QSA) is an exploration in qualitative social physics: dozens (or hundreds) of specialist agents inhabit a shared grid, negotiate tasks, resolve conflicts, and iteratively build a collaborative workspace — while you watch them move across a **Conway's Game of Life** substrate in an isometric ant-colony view.
+
+https://github.com/user-attachments/assets/84cb57be-42ab-4fd7-9ef4-0b94bab38531
 
 
 https://github.com/user-attachments/assets/84cb57be-42ab-4fd7-9ef4-0b94bab38531
@@ -32,15 +34,15 @@ The society is not a chatroom. It is a **closed learning loop** where agents per
 |------|----------------|
 | **Run Society** | Full multi-agent LangGraph loop with negotiation, conflict resolution, and live SSE |
 | **Run Baseline** | Single-agent control run for apples-to-apples efficiency comparison |
-| **Colony Dashboard** | Minimap, sector stats, agent registry, and movement log |
+| **Society Dashboard** | Minimap, sector stats, agent registry, and movement log |
 
 ### Successor to [open-deepthink](https://github.com/iblameandrew/open-deepthink)
 
-Colony continues the qualitative-neural-network line from [open-deepthink](https://github.com/iblameandrew/open-deepthink), which mapped agents onto a **layered feed-forward MLP**: parallel layer execution, Mirror Descent on personas, and epoch reframing — without an attention mechanism.
+Qualitative Self-Attention continues the qualitative-neural-network line from [open-deepthink](https://github.com/iblameandrew/open-deepthink), which mapped agents onto a **layered feed-forward MLP**: parallel layer execution, Mirror Descent on personas, and epoch reframing — without an attention mechanism.
 
-Colony upgrades that design to a **full transformer block**. Each simulation tick runs one conceptual block pass: colony agents are the **token sequence** being attended; orchestrator modules (Messenger, AttentionAgent, Auditor, …) are the **block operators** that score pairs, route work, compute loss, and write residuals back into persistent edge weights.
+QSA upgrades that design to a **full transformer block**. Each simulation tick runs one conceptual block pass: colony agents are the **token sequence** being attended; orchestrator modules (Messenger, AttentionAgent, Auditor, …) are the **block operators** that score pairs, route work, compute loss, and write residuals back into persistent edge weights.
 
-| | open-deepthink | Colony |
+| | open-deepthink | QSA |
 |---|----------------|--------|
 | **Core analogue** | Stacked MLP layers | Transformer block |
 | **Relational scoring** | Layer-to-layer context | **Attention Agent** (pairwise weights) |
@@ -55,7 +57,7 @@ Colony upgrades that design to a **full transformer block**. Each simulation tic
 
 ### Two layers — don't conflate them
 
-Colony uses the word *agent* in two distinct ways. The diagrams below keep them separate so the transformer analogy stays precise.
+QSA uses the word *agent* in two distinct ways. The diagrams below keep them separate so the transformer analogy stays precise.
 
 | Layer | What it is | Count | On the grid? |
 |-------|------------|-------|--------------|
@@ -84,7 +86,7 @@ flowchart TB
         ADD1 -.->|skip connection| ADD2
     end
 
-    subgraph tick["Colony tick (one LangGraph pass — actual order)"]
+    subgraph tick["Society tick (one LangGraph pass — actual order)"]
         direction TB
         STATE["Shared state<br/>agents · canvas · playbook · custodian"]
         PERFORM["PERFORM · Messenger<br/><i>feed-forward activations</i>"]
@@ -104,11 +106,11 @@ flowchart TB
     XOUT -.->|analogue| STATE
 ```
 
-> **Order note:** A classic block lists projection → attention → FFN left-to-right. Colony runs **FFN → projection → attention** within the forward half (`PERFORM → DECOMPOSE → ATTEND`) because agents produce artifacts before subtasks are re-routed and pairs are scored. The *roles* still map cleanly; only the scheduling differs.
+> **Order note:** A classic block lists projection → attention → FFN left-to-right. QSA runs **FFN → projection → attention** within the forward half (`PERFORM → DECOMPOSE → ATTEND`) because agents produce artifacts before subtasks are re-routed and pairs are scored. The *roles* still map cleanly; only the scheduling differs.
 
 ### Self-attention analogue
 
-In a transformer, every token attends to every other token. In Colony, every **colony agent** can be scored against every other agent each tick — that pairwise judgment *is* the self-attention step.
+In a transformer, every token attends to every other token. In QSA, every **grid agent** can be scored against every other agent each tick — that pairwise judgment *is* the self-attention step.
 
 ```mermaid
 flowchart LR
@@ -140,7 +142,7 @@ flowchart LR
     PLAY --> VIZ
 ```
 
-| Transformer primitive | Colony implementation |
+| Transformer primitive | QSA implementation |
 |-----------------------|----------------------|
 | Token embeddings | Agent trait vectors (`verbs`, `nouns`, `adjectives`, `role`) |
 | Q / K / Kᵀ | Pairwise comparison of agent A's traits toward agent B |
@@ -226,14 +228,14 @@ flowchart TB
 
 ---
 
-## Colony visualization
+## Grid visualization
 
 The frontend renders a fixed **isometric orthographic** view — like watching an ant farm, not flying a camera.
 
 ```
 ┌─────────────────────────────────────┬──────────────────┐
 │  Isometric colony view (ant-farm)   │  Dashboard       │
-│  96×96 land patch                   │  · Colony map    │
+│  96×96 land patch                   │  · Society map   │
 │  Trees every 8 cells (even grid)    │  · Sector stats  │
 │  Agents = instanced voxel cubes     │  · Agent registry│
 │  Playbook edges = connection lines  │  · Movement log  │
@@ -247,7 +249,7 @@ The frontend renders a fixed **isometric orthographic** view — like watching a
 | Walkable cells | ~9,095 |
 | Tree spacing | Every 8 cells (margin 4) |
 | Max agents | 512 default swarm (up to 2,048 instanced) |
-| Default colony | 48 agents (6 specialists + 42 workers) |
+| Default swarm | 48 agents (6 specialists + 42 workers) |
 
 **Controls:** Shift+drag to pan · scroll to zoom · click an agent to inspect dependencies.
 
@@ -372,7 +374,7 @@ The first two agents in the roster act as **disputants**. The resolver mediates 
 
 | Field | Meaning |
 |-------|---------|
-| **Topic** | Usually a Colony-wide design question (not a single subtask) |
+| **Topic** | Usually a society-wide design question (not a single subtask) |
 | **Proposal / counter-offer** | Competing approaches attributed to each disputant |
 | **Outcome** | `compromise`, `voting`, or similar |
 | **Decision** | Final resolution text, appended to the project canvas |
@@ -393,7 +395,7 @@ With GenAI connected, the `Intervention Agent` generates topic and wording from 
 |--|----------------------|-------------------------------|
 | **Phase** | ATTEND (every tick with active tasks) | CONFLICT (regret ≥ 0.55 or injected) |
 | **Orchestrator** | `Negotiator` / Multi-Head Agent | `ConflictResolver` / Intervention Agent |
-| **Topic** | Current subtask title (e.g. “SSE Pipeline”) | Colony system design dispute |
+| **Topic** | Current subtask title (e.g. “SSE Pipeline”) | Society system design dispute |
 | **Trigger** | Two+ agents with assigned subtasks | High regret or **Inject Conflict** |
 | **Purpose** | Multi-head contention on contested work | Track 3 conflict-resolution demo |
 
@@ -462,18 +464,18 @@ The Vite dev server proxies `/api` → `http://localhost:8001`. Use **5173** in 
 ## Demo walkthrough
 
 1. **Settings** → choose **Qwen Cloud** or **OpenRouter** → set model slug (OpenRouter) → paste API key → **Connect**
-2. **Controls** → set colony size (default 48) and tick budget → **Deploy Colony**
-3. **Colony** tab → watch minimap, sectors, and agent registry populate
+2. **Controls** → set society size (default 48) and tick budget → **Deploy Society**
+3. **Society** tab → watch minimap, sectors, and agent registry populate
 4. **Metrics** tab → compare society vs baseline after both runs
 5. **Inject Conflict** → trigger the conflict-resolution demo mid-run
-6. **Reset Colony** → stop the sim and return to idle
+6. **Reset Society** → stop the sim and return to idle
 7. **Step** / **Advance Phase** / **Pause** for manual pacing
 
 ---
 
 ## GenAI backend configuration
 
-Colony supports two LLM backends via the OpenAI-compatible SDK (`langchain-openai`):
+QSA supports two LLM backends via the OpenAI-compatible SDK (`langchain-openai`):
 
 | Backend | Provider | Key source | Model routing |
 |---------|----------|------------|---------------|
@@ -528,7 +530,7 @@ Without a valid API key, agents run in **heuristic mode** (audit, negotiation, a
 ## Architecture
 
 ```
-colony/
+qualitative-self-attention/
 ├── backend/
 │   └── app/
 │       ├── agents/          # Attention, Auditor, Negotiator, …
@@ -563,7 +565,7 @@ After running both modes, the dashboard compares:
 - **Negotiation rounds**
 - **Transparency events** (SSE + playbook entries)
 - **Token usage** (active GenAI provider)
-- **Colony progress** (%)
+- **Society progress** (%)
 
 The society is designed to win on **quality and transparency** while the baseline wins on raw iteration count — making the tradeoff visible and measurable.
 

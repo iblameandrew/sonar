@@ -276,7 +276,7 @@ class QwenLLMFactory:
 
         base = self._base_url().rstrip("/")
         referer = _safe_text(os.getenv("OPENROUTER_REFERER", "https://colony.local"), limit=120)
-        title = _safe_text(os.getenv("OPENROUTER_APP_TITLE", "Colony"), limit=80)
+        title = _safe_text(os.getenv("OPENROUTER_APP_TITLE", "Qualitative Self-Attention"), limit=80)
         headers = {
             "Authorization": f"Bearer {api_key}",
             "HTTP-Referer": referer,
@@ -463,7 +463,7 @@ class QwenLLMFactory:
         }
         if self._backend == "openrouter":
             referer = _safe_text(os.getenv("OPENROUTER_REFERER", "https://colony.local"), limit=120)
-            title = _safe_text(os.getenv("OPENROUTER_APP_TITLE", "Colony"), limit=80)
+            title = _safe_text(os.getenv("OPENROUTER_APP_TITLE", "Qualitative Self-Attention"), limit=80)
             kwargs["default_headers"] = {
                 "Authorization": f"Bearer {api_key}",
                 "HTTP-Referer": referer,

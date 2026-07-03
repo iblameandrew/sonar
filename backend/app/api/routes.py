@@ -87,8 +87,8 @@ async def health() -> dict[str, str]:
     llm = "OpenRouter" if backend == "openrouter" else "Qwen Cloud"
     return {
         "status": "ok",
-        "system": "Colony",
-        "project": "Colony",
+        "system": "Qualitative Self-Attention",
+        "project": "QSA",
         "llm": llm,
         "api_version": "genai-v2",
     }

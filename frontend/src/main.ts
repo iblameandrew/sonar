@@ -78,7 +78,7 @@ function syncDeployButtons(): void {
     btn.classList.toggle("is-running", colonyRunning && !deployInFlight);
     btn.setAttribute("aria-busy", deployInFlight ? "true" : "false");
     btn.title = colonyRunning
-      ? "Colony simulation is running — wait for completion or refresh after it stops"
+      ? "Society simulation is running — wait for completion or refresh after it stops"
       : "";
   }
 }
@@ -95,7 +95,7 @@ function setColonyRunning(running: boolean): void {
 
 function showBootError(err: unknown): void {
   const msg = err instanceof Error ? err.message : String(err);
-  console.error("Colony boot failed:", err);
+  console.error("QSA boot failed:", err);
   if (bootErrorEl) {
     bootErrorEl.classList.remove("hidden");
     bootErrorEl.textContent =
@@ -436,7 +436,7 @@ async function resetColony(): Promise<void> {
     setActiveGoal("");
     updateStatus(state);
     dashboard.updateStreamStatus(sse.isConnected(), "colony reset");
-    dashboard.logEvent({ type: "colony_reset", tick: 0, payload: { message: "Colony reset to idle" } }, { force: true });
+    dashboard.logEvent({ type: "colony_reset", tick: 0, payload: { message: "Society reset to idle" } }, { force: true });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     modeLabel.textContent = "Error";

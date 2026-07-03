@@ -15,9 +15,9 @@ BASELINE_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "human",
-            "You are a single powerful agent building Colony alone.\n"
+            "You are a single powerful agent building this qualitative self-attention society alone.\n"
             "Task: {task_title} — {task_desc}\n"
-            "All Colony requirements: visualization, LangGraph, SSE, negotiation UI, metrics, integration.\n"
+            "All QSA requirements: visualization, LangGraph, SSE, negotiation UI, metrics, integration.\n"
             "Produce a concise engineering proposal (2-4 sentences). No collaboration transparency.",
         ),
     ]

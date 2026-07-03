@@ -15,7 +15,7 @@ def build_final_answer(state: SimulationState, forward_synthesis: str | None = N
 
     edges = len(state["playbook"].entries)
     lines = [
-        "# Colony Answer",
+        "# Society Answer",
         "",
         f"**Goal:** {canvas.goal}",
         "",

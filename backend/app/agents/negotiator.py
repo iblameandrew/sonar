@@ -56,7 +56,7 @@ class Negotiator:
         if len(active) >= 2:
             a, b = active[0], active[1]
             task_a = next((t for t in canvas.subtasks if t.id == a.current_task_id), None)
-            topic = task_a.title if task_a else "Colony integration approach"
+            topic = task_a.title if task_a else "Society integration approach"
 
             result = qwen_factory.invoke_structured(
                 MULTI_HEAD_AGENT,

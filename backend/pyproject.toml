@@ -1,7 +1,7 @@
 [project]
-name = "colony"
+name = "qualitative-self-attention"
 version = "0.1.0"
-description = "Colony — transformer architecture as qualitative social physics"
+description = "Qualitative Self-Attention — transformer architecture as qualitative social physics"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",

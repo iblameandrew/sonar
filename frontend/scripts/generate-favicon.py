@@ -1,4 +1,4 @@
-"""Generate voxel pixel-art favicon PNGs for Colony."""
+"""Generate voxel pixel-art favicon PNGs for Qualitative Self-Attention."""
 
 from __future__ import annotations
 
