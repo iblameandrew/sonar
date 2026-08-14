@@ -574,12 +574,28 @@ The society is designed to win on **quality and transparency** while the baselin
 ## Development
 
 ```bash
+# Backend unit + API tests (no LLM key required)
+cd backend
+pip install -e ".[dev]"
+pytest
+
 # Frontend production build
 cd frontend && npm run build
 
 # Backend health check
 curl http://localhost:8001/api/health
 ```
+
+CI on `main` and tags runs the backend suite, TypeScript check, frontend build, and a Docker image build. Pushing a `v*` tag publishes a GitHub Release after those jobs pass.
+
+### Docker
+
+```bash
+docker compose up --build
+# app + API at http://localhost:8001
+```
+
+Optional GenAI keys can be supplied via `.env` (`DASHSCOPE_API_KEY` or `OPENROUTER_API_KEY`). Without a key the society still boots in heuristic mode.
 
 Grid constants live in `backend/app/grid.py` and mirror `frontend/src/scene/colony-scene.ts` (`WORLD_SIZE=96`, `TREE_SPACING=8`).
 

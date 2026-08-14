@@ -1,6 +1,6 @@
 [project]
 name = "qualitative-self-attention"
-version = "0.1.0"
+version = "0.2.0"
 description = "Qualitative Self-Attention — transformer architecture as qualitative social physics"
 requires-python = ">=3.11"
 dependencies = [
@@ -19,6 +19,13 @@ dependencies = [
     "numpy>=1.26.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "httpx>=0.27.0",
+]
+
 [build-system]
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
@@ -26,3 +33,11 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["app*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]

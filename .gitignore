@@ -11,3 +11,7 @@ backend/data/*.jsonl
 *.egg-info/
 .DS_Store
 terminals/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
